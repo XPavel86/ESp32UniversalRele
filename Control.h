@@ -240,8 +240,7 @@ time_t getCurrentTimeFromRTC() {
 
 //=================================================
 
- void mainScenario(void (*callFunc)(String)) {  
-
+ void mainScenario(void (*callFunc)(String)) {
   if (Serial.available() > 0) {
     String arg = Serial.readString();
     manualWork(arg);
@@ -250,41 +249,58 @@ time_t getCurrentTimeFromRTC() {
     }
   }
 
-// Проверяем, включено ли использование настройки
-if (control.scenario.useSetting) {
-    // Преобразование строк даты и времени в `time_t`
+  // Проверяем, включено ли использование настройки
+  if (control.scenario.useSetting) {
+    // Преобразуем строки даты и времени в `time_t`
     time_t startDateTime = convertToTimeT(control.scenario.startDate, control.scenario.startTime);
     time_t endDateTime = convertToTimeT(control.scenario.endDate, control.scenario.endTime);
     time_t currentDateTime = getCurrentTimeFromRTC(); // Текущее время
+    struct tm currentTime;
+    localtime_r(&currentDateTime, &currentTime); // Получаем текущий день недели
 
     // Проверяем, попадает ли текущая дата/время в заданный диапазон
     if (currentDateTime >= startDateTime && currentDateTime <= endDateTime) {
-       // Serial.println("Current time is within the scenario's range.");
+      // Проверяем, установлен ли текущий день недели в "week"
+      if (control.scenario.week[currentTime.tm_wday]) {
+        // Текущее время в пределах допустимого времени
+        int startHour = control.scenario.startTime.substring(0, 2).toInt();
+        int startMinute = control.scenario.startTime.substring(3, 5).toInt();
+        int endHour = control.scenario.endTime.substring(0, 2).toInt();
+        int endMinute = control.scenario.endTime.substring(3, 5).toInt();
 
-        // Если установлена галочка температуры
-        if (control.scenario.temperatureCheckbox){
+        time_t startTimeOfDay = convertToTimeT("2000-01-01", String(startHour) + ":" + String(startMinute)); // Устанавливаем фиксированную дату для сравнения
+        time_t endTimeOfDay = convertToTimeT("2000-01-01", String(endHour) + ":" + String(endMinute));
+
+        // Проверяем, попадает ли текущее время в диапазон времени
+        if (currentDateTime >= startTimeOfDay && currentDateTime <= endTimeOfDay) {
+          // Если установлена галочка температуры
+          if (control.scenario.temperatureCheckbox) {
             // Если текущая температура меньше заданной, включаем реле
             if (currentTemp < control.scenario.temperature) {
-                controlRelay(true);
+              controlRelay(true);
             } else {
-                controlRelay(false);
+              controlRelay(false);
             }
-        } else {
+          } else {
             controlRelay(true);
+          }
+        } else {
+          controlRelay(false);
         }
+      } else {
+        controlRelay(false); // Если текущий день недели не активен
+      }
     } else {
-        controlRelay(false);
+      controlRelay(false); // Если текущее время не в пределах начала и конца даты
     }
-} else {
+  } else {
     // Если настройка отключена
     controlRelay(false);
-}
-//      String say = "Сценарий трубы остановлен - этап #5\n";
-//      callFunc(say);
-
-    printRelayStates(callFunc); // запускать с задержкой 
-
   }
+
+  printRelayStates(callFunc); // передача состояний 
+}
+
 
   ////=======================================================
 
