@@ -6,8 +6,65 @@
 
 <style>
 
+
+
 #addRelayModal {
     z-index: 30; /* Поверх первого модального окна */
+}
+.custom-select {
+    width: 200px;
+    position: relative;
+    font-size: 14px;
+    border: 1px solid #757575;
+    border-radius: 8px;
+    background-color: #fff;
+    cursor: pointer;
+    overflow: visible;
+}
+
+.selected-values {
+    padding: 8px;
+    border-radius: 8px;
+    background-color: #E1EAF0;
+    color: #333;
+}
+
+.options {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #fff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    margin-top: 10px;  /* Отступ сверху для отделения от формы */
+}
+
+.options label {
+    display: block;
+    padding: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.options label:hover {
+    background-color: #f0f0f0;
+}
+
+.options input {
+    margin-right: 8px; /* уменьшили отступ между чекбоксом и текстом */
+}
+
+/* Стиль для занятых пинов */
+.option-disabled {
+    background-color: #f8d7da !important;  /* Красный фон */
+    color: #721c24;  /* Цвет текста */
+    pointer-events: none;  /* Отключение возможности взаимодействия с элементом */
 }
 
 /* Контейнер для select-элементов на одной строке */
@@ -39,6 +96,24 @@
     width: 100%;
      overflow: auto; /* Включаем прокрутку при необходимости */
 }
+
+/* Обертка модального окна для настроек */
+.modal-settings {
+    position: relative; /* Убираем фиксированное позиционирование */
+    left: 5px; /* Прижимаем к левому краю */
+    background-color: #E1EAF0;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    max-width: 450px;
+    width: 100%;
+    margin-left: 0; /* Прижимаем к левому краю */
+    margin-top: 20px; /* Расстояние сверху */
+    margin-bottom: 20px; /* Расстояние снизу, чтобы форма не прилипала к следующему элементу */
+    height: auto; /* Высота будет зависеть от содержимого */
+    min-height: 150px; /* Минимальная высота, чтобы форма не была слишком маленькой */
+}
+
 
 /* Затемнение фона при открытом модальном окне */
 .modal-overlay {
@@ -116,6 +191,10 @@ select {
     display: flex;
     align-items: center;
     margin-bottom: 10px;
+}
+
+.checkbox-container:hover {
+    background-color: #f0f0f0;
 }
 
     body {
@@ -541,6 +620,7 @@ select {
 
     .tab {
         display: none;
+        
     }
 
     .tab.active {
@@ -800,33 +880,106 @@ select {
 
   </div>
 
-<form id="deviceSettingsForm" >
 
 <div id="Control" class="tab">
   <h2>Управление</h2>
 
-  <!-- Форма для  устройства -->
-<form id="addDeviceForm">
+  <!-- Форма для устройства -->
+  <div id="deviceSettingsForm">
     <!-- control.html -->
-   <div id="relayContainer">
-    <!-- Список реле будет генерироваться здесь -->
-</div>
+    <div id="relayContainer">
+      <!-- Список реле будет генерироваться здесь -->
+    </div>
 
-<div class="relay-temperature">Температура: <span id="temperature">0°C</span></div>
+    <div class="relay-temperature">Температура: <span id="temperature">0°C</span></div>
 
-<br>
+    <br>
 
-<button type="button" id="resetManual" onclick="resetAllRelaysToAuto()">Сбросить все в Auto</button>
+    <button type="button" id="resetManual" onclick="resetAllRelaysToAuto()">Сбросить все в Auto</button>
 
-    
-</form>
+    <div class="modal-settings">
+      <h2>Настройки устройства</h2>
+      <!-- Вторая форма для настроек -->
+      <form id="formScenario">
+        
+        <div class="container-TempSmoothly">
+          <label for="useSetting">Использовать настройку</label>
+          <label class="switch">
+          
+            <input type="checkbox" class="switchCheckbox" id="useSetting" name="useSetting" >
+            <span class="slider round"></span>
+          </label>
+        </div>
 
-</div>
-  
-   <!-- Элемент для отображения статуса -->
+        <!-- Числовое поле для температуры -->
+        <div class="input-group-temperature">
+          <label for="temperature">Температура</label>
+          <input type="number" id="setTemperature" name="setTemperature" min="-50" max="50" value="22">
+          <input type="checkbox" class="switchCheckbox" id="temperatureCheckbox" name="temperatureCheckbox" >
+          <label for="temperatureCheckbox">Включить</label>
+        </div>
+
+        <!-- Поля для даты и времени включения/выключения -->
+        <div class="time-container">
+          <label for="startDate">Дата и время включения</label>
+          <input type="date" id="startDate" name="startDate" >
+          <input type="time" id="startTime" name="startTime" value="00:00">
+        </div>
+        <div class="time-container">
+          <label for="endDate">Дата и время выключения</label>
+          <input type="date" id="endDate" name="endDate">
+          <input type="time" id="endTime" name="endTime" value="00:00">
+        </div>
+        
+ <!-- Множественный выбор дней недели -->
+        <div class="custom-select">
+            <div class="selected-values" onclick="toggleDropdown()">Выберите дни недели</div>
+            <div class="options" id="weekdays-dropdown">
+                <label for="monday">
+                    <input type="checkbox" id="monday" name="monday" value="Понедельник" checked> Понедельник
+                </label>
+                <label for="tuesday">
+                    <input type="checkbox" id="tuesday" name="tuesday" value="Вторник" checked> Вторник
+                </label>
+                <label for="wednesday">
+                    <input type="checkbox" id="wednesday" name="wednesday" value="Среда" checked> Среда
+                </label>
+                <label for="thursday">
+                    <input type="checkbox" id="thursday" name="thursday" value="Четверг" checked> Четверг
+                </label>
+                <label for="friday">
+                    <input type="checkbox" id="friday" name="friday" value="Пятница" checked> Пятница
+                </label>
+                <label for="saturday">
+                    <input type="checkbox" id="saturday" name="saturday" value="Суббота" checked> Суббота
+                </label>
+                <label for="sunday">
+                    <input type="checkbox" id="sunday" name="sunday" value="Воскресенье" checked> Воскресенье
+                </label>
+            </div>
+        </div>
+
+        <!-- Поля выбора пинов -->
+        <div class="input-group-pin" style="margin-top: 20px;">
+          <label for="pinRelays">Номер пина реле:</label>
+          <select name="pinRelays" id="pinRelays" required>
+            <option value="" disabled selected>Выберите пин</option>
+          </select>
+        </div>
+
+        <!-- Кнопка отправки данных -->
+        <button type="button" onclick="saveDataScenario(event)">Отправить</button>
+      </form> <!-- Закрытие формы formScenario -->
+    </div>
+
+  </div> <!-- Закрытие формы deviceSettingsForm -->
+</div> <!-- Закрытие div Control -->
+
+  <!-- 
+   Элемент для отображения статуса -->
 
 	<br>
-    
+
     <button class="butScan" onclick="applySettings()" id="applySettings">Применить настройки</button>
     <button class="butScan" onclick="restartDevice()">Перезагрузить</button>
    
@@ -851,6 +1004,264 @@ select {
 	
     <script>
     
+   let availablePins;
+   let ocupationPins = [];
+   
+   function setCurrentDate() {
+    // Получаем текущую дату и время
+    const currentDate = new Date();
+
+    // Форматируем текущую дату в формате YYYY-MM-DD для поля типа date
+    const dateStr = currentDate.toISOString().split('T')[0];  // "YYYY-MM-DD"
+    
+    // Форматируем текущее время в формате HH:MM для поля типа time
+    const timeStr = currentDate.toTimeString().split(' ')[0].slice(0, 5);  // "HH:MM"
+    
+    // Заполняем поля формы значениями текущей даты и времени
+    document.getElementById('startDate').value = dateStr;
+    document.getElementById('startTime').value = timeStr;
+    document.getElementById('endDate').value = dateStr;
+    document.getElementById('endTime').value = timeStr;
+}
+    
+    
+    function populatePinSelect(selectId) {
+    // Получаем элемент select по переданному ID
+    const pinSelect = document.getElementById(selectId);
+
+    // Проверяем, что элемент существует
+    if (!pinSelect) {
+        console.error(`Элемент с ID ${selectId} не найден`);
+        return;
+    }
+
+    // Очищаем текущие опции
+    pinSelect.innerHTML = '';
+
+    // Добавляем опции пинов из глобальной переменной availablePins
+    availablePins.forEach(pin => {
+        const option = document.createElement('option');
+        option.value = pin;
+        option.textContent = `Pin ${pin}`; // Текст, который будет отображаться в выпадающем списке
+
+        // Проверяем, если пин занят (он есть в массиве ocupationPins)
+       //  if (ocupationPins.includes(pin)) {
+//             // Добавляем класс для окрашивания занятых пинов
+//             option.classList.add('option-disabled');  // Применяем стиль через класс
+//             option.disabled = true;  // Отключаем выбор этого пина
+//         }
+// Проверяем, если пин занят (он есть в массиве ocupationPins)
+        if (ocupationPins.includes(pin)) {
+            option.textContent = `Pin ${pin} занят`; // Добавляем надпись "Занят"
+            option.classList.add('option-disabled');  // Применяем стиль через класс
+        } else {
+            option.textContent = `Pin ${pin}`; // Для свободных пинов просто выводим номер пина
+        }
+
+
+        pinSelect.appendChild(option);
+    });
+}
+
+//==========
+
+ function setCurrenDate() {
+ 	const currentDate = new Date();
+
+    // Получаем строку времени в формате HH:MM
+    const formattedTime = currentDate.getHours().toString().padStart(2, '0') + ":" + currentDate.getMinutes().toString().padStart(2, '0');
+    
+    // Получаем строку даты в формате YYYY-MM-DD
+    const formattedDate = currentDate.toISOString().split('T')[0]; // Преобразуем в формат YYYY-MM-DD
+
+    // Устанавливаем текущую дату и время в форму
+    document.getElementById('startDate').value = formattedDate;
+    document.getElementById('startTime').value = formattedTime;
+    document.getElementById('endDate').value = formattedDate;
+    document.getElementById('endTime').value = formattedTime;
+ }
+
+// Функция для получения настроек с сервера и заполнения формы
+        function getFormScenario() {
+    console.log('getFormScenario');
+    
+    fetch('/getFormScenario')
+        .then(response => response.json())  // Преобразуем ответ в формат JSON
+        .then(data => {
+            console.log('getFormScenario Received data:', data);
+            
+            // Заполняем форму данными
+            document.getElementById('useSetting').checked = data.useSetting;
+            document.getElementById('setTemperature').value = data.temperature; 
+            document.getElementById('temperatureCheckbox').checked = data.temperatureCheckbox;
+            document.getElementById('startDate').value = data.startDate;
+            document.getElementById('startTime').value = data.startTime;
+            document.getElementById('endDate').value = data.endDate;
+            document.getElementById('endTime').value = data.endTime;
+            document.getElementById('pinRelays').value = data.pinRelays;
+            
+            // Заполняем чекбоксы для дней недели
+            const week = data.week;  // week уже является массивом (не нужно парсить)
+            document.getElementById('monday').checked = week[0];
+            document.getElementById('tuesday').checked = week[1];
+            document.getElementById('wednesday').checked = week[2];
+            document.getElementById('thursday').checked = week[3];
+            document.getElementById('friday').checked = week[4];
+            document.getElementById('saturday').checked = week[5];
+            document.getElementById('sunday').checked = week[6];
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            
+            setCurrentDate();  // Выводим текущую дату при ошибке
+        });
+}
+
+        
+        function saveDataScenario(event) {
+    event.preventDefault(); // Предотвращаем стандартную отправку формы addRelayForm
+    
+    // Получаем форму
+    const form = document.getElementById('formScenario');
+    
+    // Выводим все элементы формы
+    console.log(form.elements);
+    
+    // Проверяем, что form существует
+    if (!(form instanceof HTMLFormElement)) {
+        console.error('Элемент не является формой!');
+        return;
+    }
+    
+    // Создаем объект FormData из формы
+    const formData = new FormData(form);
+    
+    // Собираем значения для дней недели
+    const week = {
+        monday: document.getElementById('monday').checked,
+        tuesday: document.getElementById('tuesday').checked,
+        wednesday: document.getElementById('wednesday').checked,
+        thursday: document.getElementById('thursday').checked,
+        friday: document.getElementById('friday').checked,
+        saturday: document.getElementById('saturday').checked,
+        sunday: document.getElementById('sunday').checked
+    };
+
+    // Добавляем объект week в formData
+    formData.set('week', JSON.stringify(week));
+    
+    // Автоматически добавляем значения для чекбоксов, если они не установлены
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        // Если чекбокс был выбран, его значение будет 'on', так что мы заменим его на 'true'
+        if (checkbox.checked) {
+            formData.set(checkbox.name, 'true');  // Заменяем 'on' на 'true'
+        } else {
+            formData.set(checkbox.name, 'false'); // Если не выбран, добавляем 'false'
+        }
+    });
+    
+    // Обработка выбора pinRelays
+    const select = document.getElementById('pinRelays');
+    console.log('pinRelays', select.value);  // Выведет выбранное значение
+
+    if (select.value) {
+        formData.set('pinRelays', select.value);  // Используем set, чтобы не дублировать
+    }
+    
+    // Пример: выводим данные в консоль
+    for (const [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+    }
+
+    // Отправляем данные на сервер
+    fetch('/formScenario', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Данные успешно отправлены на сервер:', data);
+        // Здесь вы можете обработать ответ сервера
+    })
+    .catch(error => {
+        console.error('Ошибка при отправке данных:', error);
+    });
+}
+
+
+  //  function saveDataScenario(event) {
+//     event.preventDefault(); // Предотвращаем стандартную отправку формы addRelayForm
+//     
+//     // Получаем форму
+//     const form = document.getElementById('formScenario');
+//     
+//     // Выводим все элементы формы
+//     console.log(form.elements);
+//     
+//     // Проверяем, что form существует
+//     if (!(form instanceof HTMLFormElement)) {
+//         console.error('Элемент не является формой!');
+//         return;
+//     }
+//     
+//     // Создаем объект FormData из формы
+//     const formData = new FormData(form);
+//     
+//      // Собираем значения для дней недели
+//     const week = {
+//         monday: document.getElementById('monday').checked,
+//         tuesday: document.getElementById('tuesday').checked,
+//         wednesday: document.getElementById('wednesday').checked,
+//         thursday: document.getElementById('thursday').checked,
+//         friday: document.getElementById('friday').checked,
+//         saturday: document.getElementById('saturday').checked,
+//         sunday: document.getElementById('sunday').checked
+//     };
+// 
+//     // Добавляем объект week в formData
+//     formData.set('week', JSON.stringify(week));
+//     
+//  // Автоматически добавляем значения для чекбоксов, если они не установлены
+//     const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+//     checkboxes.forEach(checkbox => {
+//         // Если чекбокс был выбран, его значение будет 'on', так что мы заменим его на 'true'
+//         if (checkbox.checked) {
+//             formData.set(checkbox.name, 'true');  // Заменяем 'on' на 'true'
+//         } else {
+//             formData.set(checkbox.name, 'false'); // Если не выбран, добавляем 'false'
+//         }
+//     });
+//     
+//     const select = document.getElementById('pinRelays');
+// 	console.log( 'pinRelays' ,select.value);  // Выведет выбранное значение
+// 
+// 	if (select.value) {
+//     formData.append('pinRelays', select.value);  // Используем append вместо set
+// 	}
+//     
+//     
+//     // Пример: выводим данные в консоль
+//     for (const [key, value] of formData.entries()) {
+//         console.log(`${key}: ${value}`);
+//     }
+// 
+//     // Отправляем данные на сервер
+//     fetch('/formScenario', {
+//         method: 'POST',
+//         body: formData,
+//     })
+//     .then(response => response.json())
+//     .then(data => {
+//         console.log('Данные успешно отправлены на сервер:', data);
+//         // Здесь вы можете обработать ответ сервера
+//     })
+//     .catch(error => {
+//         console.error('Ошибка при отправке данных:', error);
+//     });
+// } 
+
+//=============
     
     async function fetchFileList() {
             const response = await fetch('/fileList');
@@ -872,8 +1283,7 @@ select {
     
     // Функция для показа окна добавления реле
 function showAddRelayForm() {
-
-	 closeRelaySettings();
+    closeRelaySettings();
 
     // Открыть модальное окно для добавления реле
     document.getElementById('addRelayModal').style.display = 'block';
@@ -882,17 +1292,8 @@ function showAddRelayForm() {
     // Получаем элемент select для пинов
     const pinSelect = document.getElementById('pin');
 
-    // Очищаем текущие опции
-    pinSelect.innerHTML = '';
-
-    // Добавляем опции пинов из глобальной переменной availablePins
-    availablePins.forEach(pin => {
-        const option = document.createElement('option');
-        option.value = pin;
-        option.textContent = `Pin ${pin}`; // Текст, который будет отображаться в выпадающем списке
-        pinSelect.appendChild(option);
-    });
     
+    populatePinSelect('pin');
 }
 
 
@@ -984,7 +1385,35 @@ function closeRelaySettings() {
     document.getElementById('modalWindow').style.display = 'none';
 }
 
-let availablePins;
+function loadPins() {
+    fetch('/getRelaySettings')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch relay settings');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('getRelaySettings', data);
+
+            // Заполнение переменной availablePins с доступными пинами
+            availablePins = data.availablePins || [];  // Доступные пины из ответа сервера (предполагаем, что сервер передает такой массив)
+
+            // Фильтруем пины, которым назначен режим (mode)
+            ocupationPins = data.relays
+                .filter(relay => relay.modePin)  // Отбираем реле, у которых есть режим
+                .map(relay => relay.pin);        // Извлекаем пины с назначенным режимом
+
+            console.log('Available Pins:', availablePins);
+            console.log('Occupied Pins:', ocupationPins);
+
+            // Вызов функции для заполнения select с доступными пинами
+            populatePinSelect('pinRelays'); // Замените 'pinRelays' на нужный ID вашего элемента select
+        })
+        .catch(error => {
+            console.error('Ошибка при загрузке настроек реле:', error);
+        });
+}
 
 function loadRelaySettings() {
     fetch('/getRelaySettings')
@@ -996,6 +1425,13 @@ function loadRelaySettings() {
         })
         .then(data => {
             console.log('getRelaySettings', data);
+            // availablePins =  data.availablePins;
+             // Фильтруем пины, которым назначен режим (mode)
+            ocupationPins = data.relays
+                .filter(relay => relay.modePin)  // Отбираем реле, у которых есть режим
+                .map(relay => relay.pin);        // Извлекаем пины с назначенным режимом
+
+            console.log('Ocupation Pins:', ocupationPins);
 
             const relaySettingsForm = document.getElementById('relaySettingsForm');
             relaySettingsForm.innerHTML = ''; // Очистить форму перед загрузкой новых данных
@@ -1419,8 +1855,31 @@ function format() {
         document.getElementById("defaultOpen").click();
         
  let savedSettings = {}; // Переменная для хранения полученных настроек
+ 
+//=================================================================
+
+function toggleDropdown() {
+    const dropdown = document.querySelector('.options');
+    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+}
+
+// Закрыть выпадающий список, если кликнули за его пределами
+document.addEventListener('click', function (event) {
+    const dropdown = document.querySelector('.options');
+    const customSelect = document.querySelector('.custom-select');
+    if (!customSelect.contains(event.target)) {
+        dropdown.style.display = 'none';
+    }
+});
+
 
  document.addEventListener("DOMContentLoaded", function() {
+ 
+	getFormScenario();
+    
+  loadPins();
+  
+ //=============================
 
     function fetchSettings() {
         fetch('/getsettings')

@@ -121,7 +121,7 @@ struct DateTime {
 
 DateTime dateTime;
 
-ESP32Time rtc;
+//ESP32Time rtc;
 //==============================
 const size_t MAX_LOG_MESSAGES = 100;
 
@@ -972,7 +972,204 @@ void deleteNetwork(String ssid) {
 //================================= r.manualMode = true;r.manualMode = true;
 
 void serverProcessingControl() {
+
+
+  // Настроим сервер для обработки GET-запросов
+server.on("/getFormScenario", HTTP_GET, [](AsyncWebServerRequest *request){
+    // Создание JSON документа
+    DynamicJsonDocument doc(2048);
+    
+    // Добавляем данные из структуры Scenario
+    doc["useSetting"] = control.scenario.useSetting;
+    doc["temperature"] = control.scenario.temperature;
+    doc["temperatureCheckbox"] = control.scenario.temperatureCheckbox;
+    doc["startDate"] = control.scenario.startDate;
+    doc["startTime"] = control.scenario.startTime;
+    doc["endDate"] = control.scenario.endDate;
+    doc["endTime"] = control.scenario.endTime;
+    doc["pinRelays"] = control.scenario.pinRelays;
+
+    // Добавляем данные о днях недели
+    JsonArray week = doc.createNestedArray("week");
+    for (int i = 0; i < 7; i++) {
+        week.add(control.scenario.week[i]);
+    }
+
+    // Сериализация JSON документа в строку
+    String response;
+    serializeJson(doc, response);
+
+    // Отправляем данные на клиент
+    request->send(200, "application/json", response);
+});
+
+server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
+    printRequestParameters(request);
+
+    // Проверка на наличие обязательных параметров
+    if (!request->hasParam("useSetting", true)) {
+        request->send(400, "text/plain", "Missing parameters");
+        return;
+    }
+
+    // Обработка параметров
+    if (request->hasParam("useSetting", true)) {
+        control.scenario.useSetting = request->getParam("useSetting", true)->value() == "true";
+    }
+
+    if (request->hasParam("temperature", true)) {
+        control.scenario.temperature = request->getParam("temperature", true)->value().toInt();
+    }
+
+    if (request->hasParam("temperatureCheckbox", true)) {
+        control.scenario.temperatureCheckbox = request->getParam("temperatureCheckbox", true)->value() == "true";
+    }
+
+    if (request->hasParam("startDate", true)) {
+        control.scenario.startDate = request->getParam("startDate", true)->value();
+    }
+
+    if (request->hasParam("startTime", true)) {
+        control.scenario.startTime = request->getParam("startTime", true)->value();
+    }
+
+    if (request->hasParam("endDate", true)) {
+        control.scenario.endDate = request->getParam("endDate", true)->value();
+    }
+
+    if (request->hasParam("endTime", true)) {
+        control.scenario.endTime = request->getParam("endTime", true)->value();
+    }
+
+    if (request->hasParam("pinRelays", true)) {
+        control.scenario.pinRelays = request->getParam("pinRelays", true)->value().toInt();
+    }
+
+    // Обработка дней недели
+    if (request->hasParam("week", true)) {
+        String weekString = request->getParam("week", true)->value();
+        DynamicJsonDocument doc(1024); // Создаем документ для парсинга JSON
+        DeserializationError error = deserializeJson(doc, weekString);
+        
+        if (error) {
+            Serial.println("Ошибка при парсинге JSON для недели");
+            request->send(400, "text/plain", "Invalid week data format");
+            return;
+        }
+
+        // Присваиваем значения дням недели из JSON
+        control.scenario.week[0] = doc["monday"].as<bool>();
+        control.scenario.week[1] = doc["tuesday"].as<bool>();
+        control.scenario.week[2] = doc["wednesday"].as<bool>();
+        control.scenario.week[3] = doc["thursday"].as<bool>();
+        control.scenario.week[4] = doc["friday"].as<bool>();
+        control.scenario.week[5] = doc["saturday"].as<bool>();
+        control.scenario.week[6] = doc["sunday"].as<bool>();
+    }
+
+    // Печать состояния после обновления
+     Serial.println("OK");
+    Serial.printf("formScenario Scenario: UseSetting=%d, Temperature=%d, TemperatureCheckbox=%d, StartDate=%s, StartTime=%s, EndDate=%s, EndTime=%s, PinRelays=%d, Week=[",
+                  static_cast<int>(control.scenario.useSetting),       // bool -> int
+                  control.scenario.temperature,                       // int
+                  static_cast<int>(control.scenario.temperatureCheckbox), // bool -> int
+                  control.scenario.startDate.c_str(),                 // String -> const char*
+                  control.scenario.startTime.c_str(),                 // String -> const char*
+                  control.scenario.endDate.c_str(),                   // String -> const char*
+                  control.scenario.endTime.c_str(),                   // String -> const char*
+                  control.scenario.pinRelays                          // int
+    );
+
+    // Добавляем вывод дней недели
+    for (int i = 0; i < 7; i++) {
+        Serial.printf("%s=%d", (i == 0 ? "Monday" : (i == 1 ? "Tuesday" : (i == 2 ? "Wednesday" : (i == 3 ? "Thursday" : (i == 4 ? "Friday" : (i == 5 ? "Saturday" : "Sunday")))))),
+                      control.scenario.week[i]);
+        if (i < 6) {
+            Serial.print(", ");
+        }
+    }
+    Serial.println("]");
+
+    // Ответ клиенту
+    request->send(200, "application/json", "{\"status\":\"Success\"}");
+});
+
+
  
+//  server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
+//   printRequestParameters(request);
+//     // Проверяем наличие параметров
+//     if (!request->hasParam("useSetting", true))  {
+//       request->send(400, "text/plain", "Missing parameters");
+//       return;
+//     }
+
+//     if (request->hasParam("useSetting", true)) {
+//     control.scenario.useSetting = request->getParam("useSetting", true)->value() == "true";
+// } else {
+//     control.scenario.useSetting = false; // Значение по умолчанию
+// }
+
+// if (request->hasParam("temperature", true)) {
+//     control.scenario.temperature = request->getParam("temperature", true)->value().toInt();
+// } else {
+//     control.scenario.temperature = 0; // Значение по умолчанию
+// }
+
+// if (request->hasParam("temperatureCheckbox", true)) {
+//     control.scenario.temperatureCheckbox = request->getParam("temperatureCheckbox", true)->value() == "true";
+// } else {
+//     control.scenario.temperatureCheckbox = false; // Значение по умолчанию
+// }
+
+// if (request->hasParam("startDate", true)) {
+//     control.scenario.startDate = request->getParam("startDate", true)->value();
+// } else {
+//     control.scenario.startDate = ""; // Пустая строка по умолчанию
+// }
+
+// if (request->hasParam("startTime", true)) {
+//     control.scenario.startTime = request->getParam("startTime", true)->value();
+// } else {
+//     control.scenario.startTime = ""; // Пустая строка по умолчанию
+// }
+
+// if (request->hasParam("endDate", true)) {
+//     control.scenario.endDate = request->getParam("endDate", true)->value();
+// } else {
+//     control.scenario.endDate = ""; // Пустая строка по умолчанию
+// }
+
+// if (request->hasParam("endTime", true)) {
+//     control.scenario.endTime = request->getParam("endTime", true)->value();
+// } else {
+//     control.scenario.endTime = ""; // Пустая строка по умолчанию
+// }
+
+// if (request->hasParam("pinRelays", true)) {
+//     control.scenario.pinRelays = request->getParam("pinRelays", true)->value().toInt();
+// } else {
+//     control.scenario.pinRelays = -1; // Значение по умолчанию
+// }
+
+//     Serial.println("OK");
+
+//     Serial.printf(
+//     "formScenario Scenario: UseSetting=%d, Temperature=%d, TemperatureCheckbox=%d, StartDate=%s, StartTime=%s, EndDate=%s, EndTime=%s, PinRelays=%d\n",
+//     static_cast<int>(control.scenario.useSetting),       // bool -> int
+//     control.scenario.temperature,                       // int
+//     static_cast<int>(control.scenario.temperatureCheckbox), // bool -> int
+//     control.scenario.startDate.c_str(),                 // String -> const char*
+//     control.scenario.startTime.c_str(),                 // String -> const char*
+//     control.scenario.endDate.c_str(),                   // String -> const char*
+//     control.scenario.endTime.c_str(),                   // String -> const char*
+//     control.scenario.pinRelays                          // int
+// );
+
+//        request->send(200, "application/json", "{\"status\":\"Success\"}");
+
+//     });
+  
 
   server.on("/relay", HTTP_POST, [](AsyncWebServerRequest* request) {
     // Проверяем наличие параметров
@@ -1046,7 +1243,7 @@ void serverProcessingControl() {
         json.remove(json.length() - 1);  // Удалить последнюю запятую
     }
     json += "],";
-    json += "\"temp\":" + String(Temp);
+    json += "\"temp\":" + String(currentTemp);
     json += "}";
     request->send(200, "application/json", json);
     
