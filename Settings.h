@@ -973,7 +973,6 @@ void deleteNetwork(String ssid) {
 
 void serverProcessingControl() {
 
-
   // Настроим сервер для обработки GET-запросов
 server.on("/getFormScenario", HTTP_GET, [](AsyncWebServerRequest *request){
     // Создание JSON документа
@@ -981,13 +980,16 @@ server.on("/getFormScenario", HTTP_GET, [](AsyncWebServerRequest *request){
     
     // Добавляем данные из структуры Scenario
     doc["useSetting"] = control.scenario.useSetting;
-    doc["temperature"] = control.scenario.temperature;
+    doc["setTemperature"] = control.scenario.temperature;
     doc["temperatureCheckbox"] = control.scenario.temperatureCheckbox;
     doc["startDate"] = control.scenario.startDate;
     doc["startTime"] = control.scenario.startTime;
     doc["endDate"] = control.scenario.endDate;
     doc["endTime"] = control.scenario.endTime;
     doc["pinRelays"] = control.scenario.pinRelays;
+    doc["pinRelays2"] = control.scenario.pinRelays2;
+
+    doc["timeInterval"] = control.scenario.timeInterval;
 
     // Добавляем данные о днях недели
     JsonArray week = doc.createNestedArray("week");
@@ -1017,8 +1019,8 @@ server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
         control.scenario.useSetting = request->getParam("useSetting", true)->value() == "true";
     }
 
-    if (request->hasParam("temperature", true)) {
-        control.scenario.temperature = request->getParam("temperature", true)->value().toInt();
+    if (request->hasParam("setTemperature", true)) {
+        control.scenario.temperature = request->getParam("setTemperature", true)->value().toInt();
     }
 
     if (request->hasParam("temperatureCheckbox", true)) {
@@ -1045,6 +1047,14 @@ server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
         control.scenario.pinRelays = request->getParam("pinRelays", true)->value().toInt();
     }
 
+    if (request->hasParam("pinRelays2", true)) {
+        control.scenario.pinRelays2 = request->getParam("pinRelays2", true)->value().toInt();
+    }
+
+    if (request->hasParam("timeInterval", true)) {
+        control.scenario.timeInterval = request->getParam("timeInterval", true)->value().toInt();
+    }
+
     // Обработка дней недели
     if (request->hasParam("week", true)) {
         String weekString = request->getParam("week", true)->value();
@@ -1069,7 +1079,7 @@ server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
 
     // Печать состояния после обновления
      Serial.println("OK");
-    Serial.printf("formScenario Scenario: UseSetting=%d, Temperature=%d, TemperatureCheckbox=%d, StartDate=%s, StartTime=%s, EndDate=%s, EndTime=%s, PinRelays=%d, Week=[",
+    Serial.printf("Save /formScenario: UseSetting=%d, Temperature=%d, TemperatureCheckbox=%d, StartDate=%s, StartTime=%s, EndDate=%s, EndTime=%s, PinRelays=%d, PinRelays2=%d, timeInterval=%d,  Week=[",
                   static_cast<int>(control.scenario.useSetting),       // bool -> int
                   control.scenario.temperature,                       // int
                   static_cast<int>(control.scenario.temperatureCheckbox), // bool -> int
@@ -1077,7 +1087,9 @@ server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
                   control.scenario.startTime.c_str(),                 // String -> const char*
                   control.scenario.endDate.c_str(),                   // String -> const char*
                   control.scenario.endTime.c_str(),                   // String -> const char*
-                  control.scenario.pinRelays                          // int
+                  control.scenario.pinRelays,   
+                  control.scenario.pinRelays2,
+                  control.scenario.timeInterval                  // int
     );
 
     // Добавляем вывод дней недели
@@ -1093,83 +1105,6 @@ server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
     // Ответ клиенту
     request->send(200, "application/json", "{\"status\":\"Success\"}");
 });
-
-
- 
-//  server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
-//   printRequestParameters(request);
-//     // Проверяем наличие параметров
-//     if (!request->hasParam("useSetting", true))  {
-//       request->send(400, "text/plain", "Missing parameters");
-//       return;
-//     }
-
-//     if (request->hasParam("useSetting", true)) {
-//     control.scenario.useSetting = request->getParam("useSetting", true)->value() == "true";
-// } else {
-//     control.scenario.useSetting = false; // Значение по умолчанию
-// }
-
-// if (request->hasParam("temperature", true)) {
-//     control.scenario.temperature = request->getParam("temperature", true)->value().toInt();
-// } else {
-//     control.scenario.temperature = 0; // Значение по умолчанию
-// }
-
-// if (request->hasParam("temperatureCheckbox", true)) {
-//     control.scenario.temperatureCheckbox = request->getParam("temperatureCheckbox", true)->value() == "true";
-// } else {
-//     control.scenario.temperatureCheckbox = false; // Значение по умолчанию
-// }
-
-// if (request->hasParam("startDate", true)) {
-//     control.scenario.startDate = request->getParam("startDate", true)->value();
-// } else {
-//     control.scenario.startDate = ""; // Пустая строка по умолчанию
-// }
-
-// if (request->hasParam("startTime", true)) {
-//     control.scenario.startTime = request->getParam("startTime", true)->value();
-// } else {
-//     control.scenario.startTime = ""; // Пустая строка по умолчанию
-// }
-
-// if (request->hasParam("endDate", true)) {
-//     control.scenario.endDate = request->getParam("endDate", true)->value();
-// } else {
-//     control.scenario.endDate = ""; // Пустая строка по умолчанию
-// }
-
-// if (request->hasParam("endTime", true)) {
-//     control.scenario.endTime = request->getParam("endTime", true)->value();
-// } else {
-//     control.scenario.endTime = ""; // Пустая строка по умолчанию
-// }
-
-// if (request->hasParam("pinRelays", true)) {
-//     control.scenario.pinRelays = request->getParam("pinRelays", true)->value().toInt();
-// } else {
-//     control.scenario.pinRelays = -1; // Значение по умолчанию
-// }
-
-//     Serial.println("OK");
-
-//     Serial.printf(
-//     "formScenario Scenario: UseSetting=%d, Temperature=%d, TemperatureCheckbox=%d, StartDate=%s, StartTime=%s, EndDate=%s, EndTime=%s, PinRelays=%d\n",
-//     static_cast<int>(control.scenario.useSetting),       // bool -> int
-//     control.scenario.temperature,                       // int
-//     static_cast<int>(control.scenario.temperatureCheckbox), // bool -> int
-//     control.scenario.startDate.c_str(),                 // String -> const char*
-//     control.scenario.startTime.c_str(),                 // String -> const char*
-//     control.scenario.endDate.c_str(),                   // String -> const char*
-//     control.scenario.endTime.c_str(),                   // String -> const char*
-//     control.scenario.pinRelays                          // int
-// );
-
-//        request->send(200, "application/json", "{\"status\":\"Success\"}");
-
-//     });
-  
 
   server.on("/relay", HTTP_POST, [](AsyncWebServerRequest* request) {
     // Проверяем наличие параметров
@@ -1856,13 +1791,13 @@ bool handleTelegramCommand(String chat_id, String command) {
     return true;
   }
   // Проверка и обработка команды "/setLimitWorkPressurePump"
-//  else if (command.startsWith("/setLimitWorkPressurePump")) {
-//    int value = command.substring(25).toInt();  // Извлечь значение
-//    control.limitWorkPressurePump = value;
-//    Serial.printf("limitWorkPressurePump set to %d\n", value);
-//    isSaveControl = true;
-//    return true;
-//  }
+ else if (command.startsWith("/setTimeInterval")) {
+   int value = command.substring(17).toInt();  // Извлечь значение
+   control.scenario.timeInterval = value;
+   Serial.printf("setTimeInterval set to %d\n", value);
+   isSaveControl = true;
+   return true;
+ }
   //===============
   
    else if (command.startsWith("/help")) {
@@ -1884,7 +1819,8 @@ bool handleTelegramCommand(String chat_id, String command) {
     return true;
   } else if (command.startsWith("/log")) {
     bool value = command.substring(4).equalsIgnoreCase("true");  // Извлечь значение
-    String outStr = getLog();
+    String outStr = "Log:\n";
+    outStr += getLog();
     bot->sendMessage(chat_id, outStr, "");
 
     return true;

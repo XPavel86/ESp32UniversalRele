@@ -8,39 +8,38 @@
 #include <AsyncDelay.h>
 //#include <jsnsr04t.h>
 
-
 ESP32Time rtc;
 
-//====================================
 // датчик температуры //
-
-const int tempPin = 32;   
+const int tempPin = 32;
 
 #define B 3950              // B-коэффициент
 #define SERIAL_R 10000      // сопротивление последовательного резистора, 10 кОм
 #define THERMISTOR_R 22000  // номинальное сопротивления термистора, 10 кОм
-#define NOMINAL_T 25        // номинальная температура (при которой TR = 10 кОм)  #define B 3950 // B-коэффициент
+#define NOMINAL_T 25        // номинальная температура (при которой TR = 10 кОм)  #define B 3950 // B-коэффициент \
                             // номинальная температура (при которой TR = 10 кОм)
 //==============================
 bool isSaveControl = false;
 //=============================
 
 struct Scenario {
-    bool useSetting;         // Использовать настройку
-    int temperature;         // Температура
-    bool temperatureCheckbox; // Включить температуру
-    String startDate;        // Дата и время включения
-    String startTime;        // Время включения
-    String endDate;          // Дата и время выключения
-    String endTime;          // Время выключения
-    int pinRelays;           // Номер пина реле
-    bool week[7];
+  bool useSetting;           // Использовать настройку
+  int temperature;           // Температура
+  bool temperatureCheckbox;  // Включить температуру
+  String startDate;          // Дата и время включения
+  String startTime;          // Время включения
+  String endDate;            // Дата и время выключения
+  String endTime;            // Время выключения
+  int pinRelays;
+  int pinRelays2;  // Номер пина реле
+  int timeInterval;
+  bool week[7];
 };
 
 
 struct Relay {
   int pin;
-  String modePin; // INPUT, OUTPUT, INPUT_PULLUP или INPUT_PULLDOWN
+  String modePin;  // INPUT, OUTPUT, INPUT_PULLUP или INPUT_PULLDOWN
   bool manualMode;
   bool statePin;
   bool lastState;
@@ -49,11 +48,8 @@ struct Relay {
 
 struct Control {
   std::vector<Relay> relays;
-  std::vector<int> pins = {23, 22, 1, 3, 21, 19, 18, 5, 17, 16, 33, 32 }; // only input - 35, 34, 39, 36
+  std::vector<int> pins = { 23, 22, 1, 3, 21, 19, 18, 5, 17, 16, 33, 32 };  // only input - 35, 34, 39, 36
   Scenario scenario;
-  int getRelayCount() const {
-        return relays.size();
-    }
 };
 
 Control control;
@@ -66,6 +62,20 @@ void initializeControl() {
     { 18, "OUTPUT", false, false, false, "Реле_2" },
   };
 
+  // Инициализация структуры сценария
+  control.scenario = {
+    false,                                        // Использовать настройку (например, true)
+    22,                                           // Температура (например, 22°C)
+    true,                                         // Включить температуру (например, true)
+    "2024-12-29",                                 // Дата включения (например, "2024-12-29")
+    "08:00",                                      // Время включения (например, "08:00")
+    "2024-12-29",                                 // Дата выключения (например, "2024-12-29")
+    "10:00",                                      // Время выключения (например, "20:00")
+    5,                                            // Номер пина реле 1
+    18,                                           // Номер пина реле 2
+    40,                                           // Интервал времени (например, 10 минут)
+    { true, true, true, true, true, true, true }  // Все дни недели активны
+  };
 }
 
 //==================================
@@ -96,43 +106,42 @@ float getTemp() {
 }
 //===================================
 
-
 void printRelay(const Relay& relay) {
-    Serial.print("Pin: ");
-    Serial.print(relay.pin);
-    Serial.print(", Mode Pin: ");
-    Serial.print(relay.modePin);
-    Serial.print(", Manual Mode: ");
-    Serial.print(relay.manualMode ? "true" : "false");
-    Serial.print(", State Pin: ");
-    Serial.print(relay.statePin ? "true" : "false");
-    Serial.print(", Description: ");
-    Serial.println(relay.description);
+  Serial.print("Pin: ");
+  Serial.print(relay.pin);
+  Serial.print(", Mode Pin: ");
+  Serial.print(relay.modePin);
+  Serial.print(", Manual Mode: ");
+  Serial.print(relay.manualMode ? "true" : "false");
+  Serial.print(", State Pin: ");
+  Serial.print(relay.statePin ? "true" : "false");
+  Serial.print(", Description: ");
+  Serial.println(relay.description);
 }
 
-   String modePinToString(int modePin) {
+String modePinToString(int modePin) {
 
-   switch (modePin) {
-       case INPUT: return "INPUT"; // 1
-       case OUTPUT: return "OUTPUT";  // 3
-       case INPUT_PULLUP: return "INPUT_PULLUP"; // 5
-       case INPUT_PULLDOWN: return "INPUT_PULLDOWN"; // 9
-       default: return "UNKNOWN"; // Для обработки некорректных значений
-   }
+  switch (modePin) {
+    case INPUT: return "INPUT";                    // 1
+    case OUTPUT: return "OUTPUT";                  // 3
+    case INPUT_PULLUP: return "INPUT_PULLUP";      // 5
+    case INPUT_PULLDOWN: return "INPUT_PULLDOWN";  // 9
+    default: return "UNKNOWN";                     // Для обработки некорректных значений
+  }
 }
 
 int stringToModePin(String mode) {
-    if (mode == "INPUT") {
-        return INPUT;
-    } else if (mode == "OUTPUT") {
-        return OUTPUT;
-    } else if (mode == "INPUT_PULLUP") {
-        return INPUT_PULLUP;
-    } else if (mode == "INPUT_PULLDOWN") {
-        return INPUT_PULLDOWN;
-    } else {
-        return OUTPUT; // Некорректный режим, по умолчанию возвращаем 1
-    }
+  if (mode == "INPUT") {
+    return INPUT;
+  } else if (mode == "OUTPUT") {
+    return OUTPUT;
+  } else if (mode == "INPUT_PULLUP") {
+    return INPUT_PULLUP;
+  } else if (mode == "INPUT_PULLDOWN") {
+    return INPUT_PULLDOWN;
+  } else {
+    return OUTPUT;  // Некорректный режим, по умолчанию возвращаем 1
+  }
 }
 
 void setupControl() {
@@ -156,8 +165,8 @@ String debugInfo() {
 
   debugString += "\nРеле:\n";
   for (const auto& relay : control.relays) {
-    debugString += "Pin: " + String(relay.pin); // modePin
-    debugString += "ModePin: " + String(relay.modePin); // modePin
+    debugString += "Pin: " + String(relay.pin);          // modePin
+    debugString += "ModePin: " + String(relay.modePin);  // modePin
     debugString += ", ManualMode: " + String(relay.manualMode);
     debugString += ", statePin: " + String(digitalRead(relay.pin));
     debugString += ", Description: " + relay.description;
@@ -166,19 +175,80 @@ String debugInfo() {
 
   debugString += "\nДатчики и кнопки:\n";
   debugString += "Temp Pin: " + String(tempPin) + "\n";
-  
+
   if (Serial.available() > 0) {
     Serial.println(debugString);
   }
   return debugString;
 }
 
-
 void manualWork(String arg) {
   if (arg == "?\n" || arg == "status\n") {
     debugInfo();
   }
   debug = (arg == "debug\n");
+}
+
+//=====================================================
+
+bool startTimer1 = false;
+int timer1 = 0;
+
+// Состояние реле
+bool relay1State = false;
+
+void toggleRelays() {
+  int relay1Pin = control.scenario.pinRelays;
+  int relay2Pin = control.scenario.pinRelays2;
+
+  if (relay1State) {
+    // Если реле1 включено, выключаем его и включаем реле2
+    digitalWrite(relay1Pin, LOW);
+    digitalWrite(relay2Pin, HIGH);
+    relay1State = false;
+    Serial.println("Relay1 OFF, Relay2 ON");
+  } else {
+    // Если реле2 включено, выключаем его и включаем реле1
+    digitalWrite(relay2Pin, LOW);
+    digitalWrite(relay1Pin, HIGH);
+    relay1State = true;
+    Serial.println("Relay2 OFF, Relay1 ON");
+  }
+}
+
+void scenarioRele(bool start) {
+  int relayInterval = control.scenario.timeInterval;
+  int relay1Pin = control.scenario.pinRelays;
+  int relay2Pin = control.scenario.pinRelays2;
+
+  bool manualMode1;
+  bool manualMode2;
+
+  for (auto& r : control.relays) {
+    if (r.pin == relay1Pin) {
+      manualMode1 = r.manualMode;
+    }
+
+    if (r.pin == relay2Pin) {
+      manualMode2 = r.manualMode;
+    }
+  }
+
+  if (!(manualMode1 || manualMode2)) {
+
+    if (start) {
+      startTimer1 = true;
+
+      if (timer1 >= relayInterval) {
+        toggleRelays();
+        timer1 = 0;
+      }
+    } else {
+      startTimer1 = false;
+      digitalWrite(relay1Pin, LOW);
+      digitalWrite(relay2Pin, LOW);
+    }
+  }
 }
 
 //=====================================================//
@@ -191,7 +261,7 @@ void printRelayStates(void (*callFunc)(String)) {
     if (statePin != relay.lastState) {
       String sOut = relay.description;
       sOut += ": ";
-      sOut += statePin ? "включено" : "отключено"; // включено / отключено
+      sOut += statePin ? "включено" : "отключено";  // включено / отключено
       sOut += "\n";
 
       callFunc(sOut);
@@ -203,44 +273,35 @@ void printRelayStates(void (*callFunc)(String)) {
 
 //=================[Главный сценарий]==================//
 
-
-time_t convertToTimeT(const String& date, const String& time) {
-    tm t = {};
-    sscanf(date.c_str(), "%4d-%2d-%2d", &t.tm_year, &t.tm_mon, &t.tm_mday);
-    sscanf(time.c_str(), "%2d:%2d", &t.tm_hour, &t.tm_min);
-
-    t.tm_year -= 1900; // Годы с 1900
-    t.tm_mon -= 1;     // Месяцы от 0 до 11
-
-    return mktime(&t);
+int shiftWeekDay(int currentDay) {
+  if (currentDay == 0) {  // Если воскресенье
+    return 6;             // В воскресенье будет индекс 6
+  } else {
+    return currentDay - 1;  // Остальные дни сдвигаем на 1
+  }
 }
 
-bool lastStatePin = LOW;  // Переменная для хранения последнего состояния реле
+time_t convertToTimeT(const String& date, const String& time) {
+  tm t = {};
+  sscanf(date.c_str(), "%4d-%2d-%2d", &t.tm_year, &t.tm_mon, &t.tm_mday);
+  sscanf(time.c_str(), "%2d:%2d", &t.tm_hour, &t.tm_min);
 
-void controlRelay(bool state) {
-    int relayPin = control.scenario.pinRelays;
+  t.tm_year -= 1900;  // Годы с 1900
+  t.tm_mon -= 1;      // Месяцы от 0 до 11
 
-    // Проверяем, нужно ли менять состояние реле
-    if (state != lastStatePin) {
-        if (state) {
-            digitalWrite(relayPin, HIGH);  // Включаем реле
-        } else {
-            digitalWrite(relayPin, LOW);   // Выключаем реле
-        }
-
-        lastStatePin = state;  // Обновляем последнее состояние
-    } 
+  return mktime(&t);
 }
 
 time_t getCurrentTimeFromRTC() {
-    time_t now = rtc.getEpoch(); // Получаем текущее время из RTC
-    return now; // Возвращаем как time_t
+  time_t now = rtc.getEpoch();  // Получаем текущее время из RTC
+  return now;                   // Возвращаем как time_t
 }
 
 
 //=================================================
 
- void mainScenario(void (*callFunc)(String)) {
+void mainScenario(void (*callFunc)(String)) {
+
   if (Serial.available() > 0) {
     String arg = Serial.readString();
     manualWork(arg);
@@ -254,71 +315,81 @@ time_t getCurrentTimeFromRTC() {
     // Преобразуем строки даты и времени в `time_t`
     time_t startDateTime = convertToTimeT(control.scenario.startDate, control.scenario.startTime);
     time_t endDateTime = convertToTimeT(control.scenario.endDate, control.scenario.endTime);
-    time_t currentDateTime = getCurrentTimeFromRTC(); // Текущее время
+    time_t currentDateTime = getCurrentTimeFromRTC();  // Текущее время
     struct tm currentTime;
-    localtime_r(&currentDateTime, &currentTime); // Получаем текущий день недели
+    localtime_r(&currentDateTime, &currentTime);  // Получаем текущий день недели
 
     // Проверяем, попадает ли текущая дата/время в заданный диапазон
     if (currentDateTime >= startDateTime && currentDateTime <= endDateTime) {
-      // Проверяем, установлен ли текущий день недели в "week"
-      if (control.scenario.week[currentTime.tm_wday]) {
-        // Текущее время в пределах допустимого времени
+
+      // Проверяем, включен ли текущий день в массиве недели
+      if (control.scenario.week[shiftWeekDay(currentTime.tm_wday)]) {
+
+        struct tm* currentTime = localtime(&currentDateTime);  // Преобразуем в структуру tm
+        int currentHour = currentTime->tm_hour;                // Часы
+        int currentMinute = currentTime->tm_min;               // Минуты
+
+        // Время начала и окончания
         int startHour = control.scenario.startTime.substring(0, 2).toInt();
         int startMinute = control.scenario.startTime.substring(3, 5).toInt();
         int endHour = control.scenario.endTime.substring(0, 2).toInt();
         int endMinute = control.scenario.endTime.substring(3, 5).toInt();
 
-        time_t startTimeOfDay = convertToTimeT("2000-01-01", String(startHour) + ":" + String(startMinute)); // Устанавливаем фиксированную дату для сравнения
-        time_t endTimeOfDay = convertToTimeT("2000-01-01", String(endHour) + ":" + String(endMinute));
+        // Преобразуем время начала и окончания в количество минут с начала дня
+        int startMinutes = startHour * 60 + startMinute;
+        int endMinutes = endHour * 60 + endMinute;
+        int currentMinutes = currentHour * 60 + currentMinute;
 
-        // Проверяем, попадает ли текущее время в диапазон времени
-        if (currentDateTime >= startTimeOfDay && currentDateTime <= endTimeOfDay) {
+        // Сравниваем время в минутах
+        if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
           // Если установлена галочка температуры
           if (control.scenario.temperatureCheckbox) {
             // Если текущая температура меньше заданной, включаем реле
             if (currentTemp < control.scenario.temperature) {
-              controlRelay(true);
+              //scenarioRele(true, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
+              scenarioRele(true);
             } else {
-              controlRelay(false);
+              //scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
+              scenarioRele(false);
             }
           } else {
-            controlRelay(true);
+            //scenarioRele(true, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
+            scenarioRele(true);
           }
         } else {
-          controlRelay(false);
+          // scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
+          scenarioRele(false);
         }
       } else {
-        controlRelay(false); // Если текущий день недели не активен
+        // scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval ); // Если текущий день недели не активен
+        scenarioRele(false);
       }
     } else {
-      controlRelay(false); // Если текущее время не в пределах начала и конца даты
+      //scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval ); // Если текущее время не в пределах начала и конца даты
+      scenarioRele(false);
     }
   } else {
     // Если настройка отключена
-    controlRelay(false);
+    //scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
+    scenarioRele(false);
   }
 
-  printRelayStates(callFunc); // передача состояний 
+  printRelayStates(callFunc);  // передача состояний
 }
 
+////====================================================
 
-  ////=======================================================
+void controlTask() {
 
-   void controlTask() {
-
-        delay(10);
-
-      //Timer for Rele2 тайемер если насос давления работает более 30 минут +
-//      if (startTimerRele2) {
-//        TimerRele2++;
-//      } else {
-//        TimerRele2 = 0;
-//      }
-
+  if (startTimer1) {
+    timer1++;
+  } else {
+    timer1 = 0;
   }
-  //======================================================
-  // Функция для сохранения структуры Control в SPIFFS
-  void saveControlToSPIFFS() {
+}
+//======================================================
+// Функция для сохранения структуры Control в SPIFFS
+void saveControlToSPIFFS() {
   isSaveControl = true;
   // Открытие файла для записи
   File file = SPIFFS.open("/control.json", FILE_WRITE);
@@ -354,6 +425,8 @@ time_t getCurrentTimeFromRTC() {
   scenario["endDate"] = control.scenario.endDate;
   scenario["endTime"] = control.scenario.endTime;
   scenario["pinRelays"] = control.scenario.pinRelays;
+  scenario["pinRelays2"] = control.scenario.pinRelays2;
+  scenario["timeInterval"] = control.scenario.timeInterval;
 
   // Добавляем данные о днях недели
   JsonArray week = scenario.createNestedArray("week");
@@ -369,11 +442,9 @@ time_t getCurrentTimeFromRTC() {
   file.close();
   isSaveControl = false;
 }
-
-
-  //=======================================================
-  // Функция для чтения структуры Control из SPIFFS
-  void loadControlFromSPIFFS() {
+//=======================================================
+// Функция для чтения структуры Control из SPIFFS
+void loadControlFromSPIFFS() {
   // Открытие файла для чтения
   File file = SPIFFS.open("/control.json", FILE_READ);
   if (!file) {
@@ -410,7 +481,7 @@ time_t getCurrentTimeFromRTC() {
     control.relays.push_back(relay);
 
     Serial.printf("loadControlFromSPIFFS: Pin=%d, Mode=%s, ManualMode=%d, StatePin=%d, Description=%s\n",
-                    relay.pin, relay.modePin.c_str(), relay.manualMode, relay.statePin, relay.description.c_str());
+                  relay.pin, relay.modePin.c_str(), relay.manualMode, relay.statePin, relay.description.c_str());
   }
 
   // Чтение данных из структуры Scenario
@@ -423,6 +494,9 @@ time_t getCurrentTimeFromRTC() {
   control.scenario.endDate = scenario["endDate"].as<String>();
   control.scenario.endTime = scenario["endTime"].as<String>();
   control.scenario.pinRelays = scenario["pinRelays"].as<int>();
+  control.scenario.pinRelays2 = scenario["pinRelays2"].as<int>();
+  control.scenario.timeInterval = scenario["timeInterval"].as<int>();
+
 
   // Чтение данных о днях недели
   JsonArray week = scenario["week"];
@@ -431,51 +505,51 @@ time_t getCurrentTimeFromRTC() {
   }
 
   Serial.printf("loadControlFromSPIFFS Scenario: UseSetting=%d, Temperature=%d, TemperatureCheckbox=%d, StartDate=%s, StartTime=%s, EndDate=%s, EndTime=%s, PinRelays=%d, Week(monday=%d, tuesday=%d, wednesday=%d, thursday=%d, friday=%d, saturday=%d, sunday=%d)\n",
-                 control.scenario.useSetting, control.scenario.temperature, control.scenario.temperatureCheckbox, control.scenario.startDate.c_str(),
-                 control.scenario.startTime.c_str(), control.scenario.endDate.c_str(), control.scenario.endTime.c_str(), control.scenario.pinRelays,
-                 control.scenario.week[0], control.scenario.week[1], control.scenario.week[2], control.scenario.week[3],
-                 control.scenario.week[4], control.scenario.week[5], control.scenario.week[6]);
+                control.scenario.useSetting, control.scenario.temperature, control.scenario.temperatureCheckbox, control.scenario.startDate.c_str(),
+                control.scenario.startTime.c_str(), control.scenario.endDate.c_str(), control.scenario.endTime.c_str(), control.scenario.pinRelays,
+                control.scenario.week[0], control.scenario.week[1], control.scenario.week[2], control.scenario.week[3],
+                control.scenario.week[4], control.scenario.week[5], control.scenario.week[6]);
 
   file.close();
 }
 
-  //============
+//============
 
-  String sendStatus() {
-    // Получаем текущий IP-адрес и SSID подключения
-    String ipAddress = WiFi.localIP().toString();
-    String ssid = WiFi.SSID();
+String sendStatus() {
+  // Получаем текущий IP-адрес и SSID подключения
+  String ipAddress = WiFi.localIP().toString();
+  String ssid = WiFi.SSID();
 
-    // Строка для справки с режимом работы каждого реле
-    String helpText = "";
-    // Добавляем информацию о состоянии каждого реле
-    helpText += "Текущий статус:\n";
-    int relayIndex = 1;  // Индекс для команд /on и /off
-    for (const auto& relay : control.relays) {
-      String commandOn = "/on" + String(relayIndex);
-      String commandOff = "/off" + String(relayIndex);
-      String mode_ = relay.manualMode ? "Manual" : "Auto";
-      String state_ = digitalRead(relay.pin) ? "On" : "Off";
-      helpText += String(commandOn + " " + commandOff + " - " + relay.description + " (" + mode_ + " / " + state_ + ")\n\n");
-      relayIndex++;
-    }
-
-    helpText += "/resetManual - Сбросить в Auto\n";
-    helpText += "/status - Статус и управление \n";
-    helpText += "/help - Справка \n\n";
-
-    // Добавляем IP-адрес и SSID
-    helpText += "Доступ из сети: http://" + ipAddress + "\n";
-    helpText += "Имя сети Wi-Fi: " + ssid + "\n\n";
-
-    return helpText;
+  // Строка для справки с режимом работы каждого реле
+  String helpText = "";
+  // Добавляем информацию о состоянии каждого реле
+  helpText += "Текущий статус:\n";
+  int relayIndex = 1;  // Индекс для команд /on и /off
+  for (const auto& relay : control.relays) {
+    String commandOn = "/on" + String(relayIndex);
+    String commandOff = "/off" + String(relayIndex);
+    String mode_ = relay.manualMode ? "Manual" : "Auto";
+    String state_ = digitalRead(relay.pin) ? "On" : "Off";
+    helpText += String(commandOn + " " + commandOff + " - " + relay.description + " (" + mode_ + " / " + state_ + ")\n\n");
+    relayIndex++;
   }
 
-  //===============================
-  
-  String sendHelp() {
-    String helpMessage = "Доступные команды:\n";
-    //helpMessage += "/on1 /off1 - Скважинный насос\n";
-   
-    return helpMessage;
-  }
+  helpText += "/resetManual - Сбросить в Auto\n";
+  helpText += "/status - Статус и управление \n";
+  helpText += "/help - Справка \n\n";
+
+  // Добавляем IP-адрес и SSID
+  helpText += "Доступ из сети: http://" + ipAddress + "\n";
+  helpText += "Имя сети Wi-Fi: " + ssid + "\n\n";
+
+  return helpText;
+}
+
+//===============================
+
+String sendHelp() {
+  String helpMessage = "Доступные команды:\n";
+  helpMessage += "Задать интервал переключения (в сек. ) /setTimeInterval 1180\n";
+
+  return helpMessage;
+}
