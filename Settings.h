@@ -18,6 +18,9 @@
 Ticker ticker;
 //=================================
 
+ bool isSetTimeStart = false;
+ bool isSetTimeEnd = false;
+
 //=================================
 bool isConnectionAttempts = true;
 int totalNetworks = 0;
@@ -289,15 +292,15 @@ void initializeWiFiSettings(WiFiSettings& settings) {
   settings.ipAddressAP = IPAddress(192, 168, 1, 1);
   settings.isAP = true;
 
-    NetworkSetting network;
-    network.ssid = "My home Wi-Fi";
-    network.password = "12345678w";
-    network.useStaticIP = false;
-    network.staticIP = IPAddress(192, 168, 1, 101 );
-    network.staticGateway = IPAddress(192, 168, 1, 1);
-    network.staticSubnet = IPAddress(255, 255, 255, 0);
-    network.staticDNS = IPAddress(192, 168, 1, 1);
-    settings.networkSettings.push_back(network);
+  NetworkSetting network;
+  network.ssid = "My home Wi-Fi";
+  network.password = "12345678w";
+  network.useStaticIP = false;
+  network.staticIP = IPAddress(192, 168, 1, 101);
+  network.staticGateway = IPAddress(192, 168, 1, 1);
+  network.staticSubnet = IPAddress(255, 255, 255, 0);
+  network.staticDNS = IPAddress(192, 168, 1, 1);
+  settings.networkSettings.push_back(network);
 }
 
 //===========================
@@ -974,10 +977,10 @@ void deleteNetwork(String ssid) {
 void serverProcessingControl() {
 
   // Настроим сервер для обработки GET-запросов
-server.on("/getFormScenario", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/getFormScenario", HTTP_GET, [](AsyncWebServerRequest* request) {
     // Создание JSON документа
     DynamicJsonDocument doc(2048);
-    
+
     // Добавляем данные из структуры Scenario
     doc["useSetting"] = control.scenario.useSetting;
     doc["setTemperature"] = control.scenario.temperature;
@@ -994,7 +997,7 @@ server.on("/getFormScenario", HTTP_GET, [](AsyncWebServerRequest *request){
     // Добавляем данные о днях недели
     JsonArray week = doc.createNestedArray("week");
     for (int i = 0; i < 7; i++) {
-        week.add(control.scenario.week[i]);
+      week.add(control.scenario.week[i]);
     }
 
     // Сериализация JSON документа в строку
@@ -1003,108 +1006,108 @@ server.on("/getFormScenario", HTTP_GET, [](AsyncWebServerRequest *request){
 
     // Отправляем данные на клиент
     request->send(200, "application/json", response);
-});
+  });
 
-server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
     printRequestParameters(request);
 
     // Проверка на наличие обязательных параметров
     if (!request->hasParam("useSetting", true)) {
-        request->send(400, "text/plain", "Missing parameters");
-        return;
+      request->send(400, "text/plain", "Missing parameters");
+      return;
     }
 
     // Обработка параметров
     if (request->hasParam("useSetting", true)) {
-        control.scenario.useSetting = request->getParam("useSetting", true)->value() == "true";
+      control.scenario.useSetting = request->getParam("useSetting", true)->value() == "true";
     }
 
     if (request->hasParam("setTemperature", true)) {
-        control.scenario.temperature = request->getParam("setTemperature", true)->value().toInt();
+      control.scenario.temperature = request->getParam("setTemperature", true)->value().toInt();
     }
 
     if (request->hasParam("temperatureCheckbox", true)) {
-        control.scenario.temperatureCheckbox = request->getParam("temperatureCheckbox", true)->value() == "true";
+      control.scenario.temperatureCheckbox = request->getParam("temperatureCheckbox", true)->value() == "true";
     }
 
     if (request->hasParam("startDate", true)) {
-        control.scenario.startDate = request->getParam("startDate", true)->value();
+      control.scenario.startDate = request->getParam("startDate", true)->value();
     }
 
     if (request->hasParam("startTime", true)) {
-        control.scenario.startTime = request->getParam("startTime", true)->value();
+      control.scenario.startTime = request->getParam("startTime", true)->value();
     }
 
     if (request->hasParam("endDate", true)) {
-        control.scenario.endDate = request->getParam("endDate", true)->value();
+      control.scenario.endDate = request->getParam("endDate", true)->value();
     }
 
     if (request->hasParam("endTime", true)) {
-        control.scenario.endTime = request->getParam("endTime", true)->value();
+      control.scenario.endTime = request->getParam("endTime", true)->value();
     }
 
     if (request->hasParam("pinRelays", true)) {
-        control.scenario.pinRelays = request->getParam("pinRelays", true)->value().toInt();
+      control.scenario.pinRelays = request->getParam("pinRelays", true)->value().toInt();
     }
 
     if (request->hasParam("pinRelays2", true)) {
-        control.scenario.pinRelays2 = request->getParam("pinRelays2", true)->value().toInt();
+      control.scenario.pinRelays2 = request->getParam("pinRelays2", true)->value().toInt();
     }
 
     if (request->hasParam("timeInterval", true)) {
-        control.scenario.timeInterval = request->getParam("timeInterval", true)->value().toInt();
+      control.scenario.timeInterval = request->getParam("timeInterval", true)->value().toInt();
     }
 
     // Обработка дней недели
     if (request->hasParam("week", true)) {
-        String weekString = request->getParam("week", true)->value();
-        DynamicJsonDocument doc(1024); // Создаем документ для парсинга JSON
-        DeserializationError error = deserializeJson(doc, weekString);
-        
-        if (error) {
-            Serial.println("Ошибка при парсинге JSON для недели");
-            request->send(400, "text/plain", "Invalid week data format");
-            return;
-        }
+      String weekString = request->getParam("week", true)->value();
+      DynamicJsonDocument doc(1024);  // Создаем документ для парсинга JSON
+      DeserializationError error = deserializeJson(doc, weekString);
 
-        // Присваиваем значения дням недели из JSON
-        control.scenario.week[0] = doc["monday"].as<bool>();
-        control.scenario.week[1] = doc["tuesday"].as<bool>();
-        control.scenario.week[2] = doc["wednesday"].as<bool>();
-        control.scenario.week[3] = doc["thursday"].as<bool>();
-        control.scenario.week[4] = doc["friday"].as<bool>();
-        control.scenario.week[5] = doc["saturday"].as<bool>();
-        control.scenario.week[6] = doc["sunday"].as<bool>();
+      if (error) {
+        Serial.println("Ошибка при парсинге JSON для недели");
+        request->send(400, "text/plain", "Invalid week data format");
+        return;
+      }
+
+      // Присваиваем значения дням недели из JSON
+      control.scenario.week[0] = doc["monday"].as<bool>();
+      control.scenario.week[1] = doc["tuesday"].as<bool>();
+      control.scenario.week[2] = doc["wednesday"].as<bool>();
+      control.scenario.week[3] = doc["thursday"].as<bool>();
+      control.scenario.week[4] = doc["friday"].as<bool>();
+      control.scenario.week[5] = doc["saturday"].as<bool>();
+      control.scenario.week[6] = doc["sunday"].as<bool>();
     }
 
     // Печать состояния после обновления
-     Serial.println("OK");
+    Serial.println("OK");
     Serial.printf("Save /formScenario: UseSetting=%d, Temperature=%d, TemperatureCheckbox=%d, StartDate=%s, StartTime=%s, EndDate=%s, EndTime=%s, PinRelays=%d, PinRelays2=%d, timeInterval=%d,  Week=[",
-                  static_cast<int>(control.scenario.useSetting),       // bool -> int
-                  control.scenario.temperature,                       // int
-                  static_cast<int>(control.scenario.temperatureCheckbox), // bool -> int
-                  control.scenario.startDate.c_str(),                 // String -> const char*
-                  control.scenario.startTime.c_str(),                 // String -> const char*
-                  control.scenario.endDate.c_str(),                   // String -> const char*
-                  control.scenario.endTime.c_str(),                   // String -> const char*
-                  control.scenario.pinRelays,   
+                  static_cast<int>(control.scenario.useSetting),           // bool -> int
+                  control.scenario.temperature,                            // int
+                  static_cast<int>(control.scenario.temperatureCheckbox),  // bool -> int
+                  control.scenario.startDate.c_str(),                      // String -> const char*
+                  control.scenario.startTime.c_str(),                      // String -> const char*
+                  control.scenario.endDate.c_str(),                        // String -> const char*
+                  control.scenario.endTime.c_str(),                        // String -> const char*
+                  control.scenario.pinRelays,
                   control.scenario.pinRelays2,
-                  control.scenario.timeInterval                  // int
+                  control.scenario.timeInterval  // int
     );
 
     // Добавляем вывод дней недели
     for (int i = 0; i < 7; i++) {
-        Serial.printf("%s=%d", (i == 0 ? "Monday" : (i == 1 ? "Tuesday" : (i == 2 ? "Wednesday" : (i == 3 ? "Thursday" : (i == 4 ? "Friday" : (i == 5 ? "Saturday" : "Sunday")))))),
-                      control.scenario.week[i]);
-        if (i < 6) {
-            Serial.print(", ");
-        }
+      Serial.printf("%s=%d", (i == 0 ? "Monday" : (i == 1 ? "Tuesday" : (i == 2 ? "Wednesday" : (i == 3 ? "Thursday" : (i == 4 ? "Friday" : (i == 5 ? "Saturday" : "Sunday")))))),
+                    control.scenario.week[i]);
+      if (i < 6) {
+        Serial.print(", ");
+      }
     }
     Serial.println("]");
 
     // Ответ клиенту
     request->send(200, "application/json", "{\"status\":\"Success\"}");
-});
+  });
 
   server.on("/relay", HTTP_POST, [](AsyncWebServerRequest* request) {
     // Проверяем наличие параметров
@@ -1125,7 +1128,7 @@ server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
       if (r.description == relay) {
         relayFound = true;
         r.statePin = (action == "on");
-      
+
         Serial.printf("Setting Relay Pin %d to %s\n", r.pin, r.statePin ? "HIGH" : "LOW");
         r.manualMode = true;
         digitalWrite(r.pin, r.statePin ? HIGH : LOW);
@@ -1168,25 +1171,25 @@ server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
     String json = "{";
     json += "\"relays\":[";
     for (const auto& relay : control.relays) {
-        json += "{";
-        json += "\"description\":\"" + relay.description + "\",";
-        json += "\"state\":" + String(digitalRead(relay.pin) ? "true" : "false") + ",";
-        json += "\"mode\":\"" + String(relay.manualMode ? "Manual" : "Auto") + "\"";
-        json += "},";
+      json += "{";
+      json += "\"description\":\"" + relay.description + "\",";
+      json += "\"state\":" + String(digitalRead(relay.pin) ? "true" : "false") + ",";
+      json += "\"mode\":\"" + String(relay.manualMode ? "Manual" : "Auto") + "\"";
+      json += "},";
     }
     if (!control.relays.empty()) {
-        json.remove(json.length() - 1);  // Удалить последнюю запятую
+      json.remove(json.length() - 1);  // Удалить последнюю запятую
     }
     json += "],";
     json += "\"temp\":" + String(currentTemp);
     json += "}";
     request->send(200, "application/json", json);
-    
-    //Serial.println(json);
-});
 
-//========= настройки control
-server.on("/getRelaySettings", HTTP_GET, [](AsyncWebServerRequest *request) {
+    //Serial.println(json);
+  });
+
+  //========= настройки control
+  server.on("/getRelaySettings", HTTP_GET, [](AsyncWebServerRequest* request) {
     // Создаем список доступных пинов
     std::vector<int> availablePins = control.pins;
 
@@ -1195,37 +1198,37 @@ server.on("/getRelaySettings", HTTP_GET, [](AsyncWebServerRequest *request) {
     response += "\"relays\":[";
 
     bool firstRelay = true;
-    for (const auto &relay : control.relays) {
-        // Проверяем, что у реле есть описание
-        if (!relay.description.isEmpty()) {
-            if (!firstRelay) {
-                response += ","; // Добавляем запятую между объектами
-            } else {
-                firstRelay = false;
-            }
-            
-            Serial.print("load relay.statePin: ");
-            Serial.println(relay.modePin); // Логируем значение modePin
-            
-            // Формируем объект для текущего реле
-            response += "{";
-            response += "\"pin\":" + String(relay.pin) + ",";
-            response += "\"modePin\":\"" + relay.modePin + "\",";
-            response += "\"manualMode\":" + String(relay.manualMode ? "true" : "false") + ",";
-            response += "\"statePin\":" + String(relay.statePin ? "true" : "false") + ",";
-            response += "\"description\":\"" + relay.description + "\"";
-            response += "}";
+    for (const auto& relay : control.relays) {
+      // Проверяем, что у реле есть описание
+      if (!relay.description.isEmpty()) {
+        if (!firstRelay) {
+          response += ",";  // Добавляем запятую между объектами
+        } else {
+          firstRelay = false;
         }
+
+        Serial.print("load relay.statePin: ");
+        Serial.println(relay.modePin);  // Логируем значение modePin
+
+        // Формируем объект для текущего реле
+        response += "{";
+        response += "\"pin\":" + String(relay.pin) + ",";
+        response += "\"modePin\":\"" + relay.modePin + "\",";
+        response += "\"manualMode\":" + String(relay.manualMode ? "true" : "false") + ",";
+        response += "\"statePin\":" + String(relay.statePin ? "true" : "false") + ",";
+        response += "\"description\":\"" + relay.description + "\"";
+        response += "}";
+      }
     }
     response += "],";
 
     // Добавляем список доступных пинов
     response += "\"availablePins\":[";
     for (size_t i = 0; i < availablePins.size(); ++i) {
-        response += String(availablePins[i]);
-        if (i < availablePins.size() - 1) {
-            response += ",";
-        }
+      response += String(availablePins[i]);
+      if (i < availablePins.size() - 1) {
+        response += ",";
+      }
     }
     response += "]";
 
@@ -1233,87 +1236,87 @@ server.on("/getRelaySettings", HTTP_GET, [](AsyncWebServerRequest *request) {
 
     // Отправляем ответ клиенту
     request->send(200, "application/json", response);
-});
+  });
 
-// Обработчик для сохранения настроек реле
-server.on("/saveRelaySettings", HTTP_POST, [](AsyncWebServerRequest* request) {
+  // Обработчик для сохранения настроек реле
+  server.on("/saveRelaySettings", HTTP_POST, [](AsyncWebServerRequest* request) {
     Serial.println("Received POST request to /saveRelaySettings");
 
-    printRequestParameters(request) ;
+    printRequestParameters(request);
 
     String requestBody;
     if (request->hasParam("relaySettings", true)) {
-        requestBody = request->getParam("relaySettings", true)->value();
-        Serial.println(requestBody);
+      requestBody = request->getParam("relaySettings", true)->value();
+      Serial.println(requestBody);
     } else {
-        Serial.println(requestBody);
-        request->send(400, "application/json", "{\"error\":\"Missing relaySettings parameter\"}");
-        return;
+      Serial.println(requestBody);
+      request->send(400, "application/json", "{\"error\":\"Missing relaySettings parameter\"}");
+      return;
     }
 
     // Обработка тела запроса
-    DynamicJsonDocument doc(2048); // Увеличьте размер, если необходимо
+    DynamicJsonDocument doc(2048);  // Увеличьте размер, если необходимо
     DeserializationError error = deserializeJson(doc, requestBody);
 
     if (error) {
-        Serial.print(F("deserializeJson() failed: "));
-        Serial.println(error.f_str());
-        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-        return;
+      Serial.print(F("deserializeJson() failed: "));
+      Serial.println(error.f_str());
+      request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+      return;
     }
 
     // Проверка, является ли JSON массивом
     if (!doc.is<JsonArray>()) {
-        Serial.println(F("Invalid JSON: Expected an array"));
-        request->send(400, "application/json", "{\"error\":\"Expected a JSON array\"}");
-        return;
+      Serial.println(F("Invalid JSON: Expected an array"));
+      request->send(400, "application/json", "{\"error\":\"Expected a JSON array\"}");
+      return;
     }
 
     JsonArray relays = doc.as<JsonArray>();
-    control.relays.clear(); // Очищаем существующий массив реле
+    control.relays.clear();  // Очищаем существующий массив реле
 
     for (JsonVariant v : relays) {
-        if (!v.is<JsonObject>()) {
-            Serial.println(F("Invalid JSON object in array"));
-            request->send(400, "application/json", "{\"error\":\"Invalid JSON structure\"}");
-            return;
-        }
+      if (!v.is<JsonObject>()) {
+        Serial.println(F("Invalid JSON object in array"));
+        request->send(400, "application/json", "{\"error\":\"Invalid JSON structure\"}");
+        return;
+      }
 
-        Relay relay;
-        JsonObject relayObj = v.as<JsonObject>();
+      Relay relay;
+      JsonObject relayObj = v.as<JsonObject>();
 
-        // Заполняем данные реле с проверкой
-        relay.pin = relayObj.containsKey("pin") ? relayObj["pin"].as<int>() : 5;
-        relay.modePin = relayObj.containsKey("modePin") ? relayObj["modePin"].as<String>() : "OUTPUT";
-        relay.manualMode = relayObj.containsKey("manualMode") ? relayObj["manualMode"].as<bool>() : false;
-        relay.statePin = relayObj.containsKey("statePin") ? relayObj["statePin"].as<bool>() : false;
-        relay.description = relayObj.containsKey("description") ? relayObj["description"].as<String>() : "Relay_1";
+      // Заполняем данные реле с проверкой
+      relay.pin = relayObj.containsKey("pin") ? relayObj["pin"].as<int>() : 5;
+      relay.modePin = relayObj.containsKey("modePin") ? relayObj["modePin"].as<String>() : "OUTPUT";
+      relay.manualMode = relayObj.containsKey("manualMode") ? relayObj["manualMode"].as<bool>() : false;
+      relay.statePin = relayObj.containsKey("statePin") ? relayObj["statePin"].as<bool>() : false;
+      relay.description = relayObj.containsKey("description") ? relayObj["description"].as<String>() : "Relay_1";
 
-        control.relays.push_back(relay);
+      control.relays.push_back(relay);
 
-        // Вывод информации о реле в консоль
-        Serial.printf("Relay added: Pin=%d, Mode=%s, ManualMode=%d, StatePin=%d, Description=%s\n",
-                      relay.pin, relay.modePin.c_str(), relay.manualMode, relay.statePin, relay.description.c_str());
+      // Вывод информации о реле в консоль
+      Serial.printf("Relay added: Pin=%d, Mode=%s, ManualMode=%d, StatePin=%d, Description=%s\n",
+                    relay.pin, relay.modePin.c_str(), relay.manualMode, relay.statePin, relay.description.c_str());
     }
 
     request->send(200, "application/json", "{\"status\":\"Success\"}");
-});
+  });
 
-// Обработчик для добавления нового реле
-server.on("/addRelay", HTTP_POST, [](AsyncWebServerRequest* request) {
+  // Обработчик для добавления нового реле
+  server.on("/addRelay", HTTP_POST, [](AsyncWebServerRequest* request) {
     Serial.println("Received POST request to /addRelay");
     printRequestParameters(request);
-     // Проставляем значения по умолчанию
+    // Проставляем значения по умолчанию
     String pin = request->hasParam("pin", true) ? request->getParam("pin", true)->value() : "";
     String modePin = request->hasParam("modePin", true) ? request->getParam("modePin", true)->value() : "OUTPUT";
     String manualMode = request->hasParam("manualMode", true) ? request->getParam("manualMode", true)->value() : "false";
     String statePin = request->hasParam("statePin", true) ? request->getParam("statePin", true)->value() : "false";
     String description = request->hasParam("description", true) ? request->getParam("description", true)->value() : "Relay_1";
 
-   // Проверяем, что все необходимые параметры присутствуют
+    // Проверяем, что все необходимые параметры присутствуют
     if (pin.isEmpty() || modePin.isEmpty()) {
-        request->send(400, "application/json", "{\"error\":\"Missing required fields\"}");
-        return;
+      request->send(400, "application/json", "{\"error\":\"Missing required fields\"}");
+      return;
     }
 
     // Создаем объект реле
@@ -1323,7 +1326,7 @@ server.on("/addRelay", HTTP_POST, [](AsyncWebServerRequest* request) {
     relay.manualMode = (manualMode == "on");
     relay.statePin = (statePin == "true");
     relay.description = description;
-    
+
     // Добавляем реле в список
     control.relays.push_back(relay);
 
@@ -1333,9 +1336,7 @@ server.on("/addRelay", HTTP_POST, [](AsyncWebServerRequest* request) {
 
     // Отправляем успешный ответ
     request->send(200, "application/json", "{\"status\":\"Success\"}");
-});
-
-
+  });
 }
 //========================================
 
@@ -1350,45 +1351,45 @@ void serverProcessing() {
 
   //=======================
 
-    // Обработчик для получения списка файлов
-    server.on("/fileList", HTTP_GET, [](AsyncWebServerRequest *request) {
-        File root = SPIFFS.open("/");
-        if (!root || !root.isDirectory()) {
-            request->send(500, "application/json", "{\"error\":\"Failed to access SPIFFS\"}");
-            return;
-        }
+  // Обработчик для получения списка файлов
+  server.on("/fileList", HTTP_GET, [](AsyncWebServerRequest* request) {
+    File root = SPIFFS.open("/");
+    if (!root || !root.isDirectory()) {
+      request->send(500, "application/json", "{\"error\":\"Failed to access SPIFFS\"}");
+      return;
+    }
 
-        String fileList = "[";
-        File file = root.openNextFile();
-        while (file) {
-            if (fileList.length() > 1) {
-                fileList += ",";
-            }
-            fileList += "\"" + String(file.name()) + "\"";
-            file.close();
-            file = root.openNextFile();
-        }
-        fileList += "]";
-        request->send(200, "application/json", fileList);
-    });
+    String fileList = "[";
+    File file = root.openNextFile();
+    while (file) {
+      if (fileList.length() > 1) {
+        fileList += ",";
+      }
+      fileList += "\"" + String(file.name()) + "\"";
+      file.close();
+      file = root.openNextFile();
+    }
+    fileList += "]";
+    request->send(200, "application/json", fileList);
+  });
 
-    // Обработчик для скачивания конкретного файла
-    server.on("/downloadFile", HTTP_GET, [](AsyncWebServerRequest *request) {
-        if (!request->hasParam("filename")) {
-            request->send(400, "text/plain", "Missing 'filename' parameter");
-            return;
-        }
+  // Обработчик для скачивания конкретного файла
+  server.on("/downloadFile", HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!request->hasParam("filename")) {
+      request->send(400, "text/plain", "Missing 'filename' parameter");
+      return;
+    }
 
-        String filename = request->getParam("filename")->value();
-        if (!SPIFFS.exists(filename)) {
-            request->send(404, "text/plain", "File not found");
-            return;
-        }
+    String filename = request->getParam("filename")->value();
+    if (!SPIFFS.exists(filename)) {
+      request->send(404, "text/plain", "File not found");
+      return;
+    }
 
-        AsyncWebServerResponse *response = request->beginResponse(SPIFFS, filename, "application/octet-stream");
-        response->addHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-        request->send(response);
-    });
+    AsyncWebServerResponse* response = request->beginResponse(SPIFFS, filename, "application/octet-stream");
+    response->addHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+    request->send(response);
+  });
   // Обработчик для получения настроек
   server.on("/getsettings", HTTP_GET, [](AsyncWebServerRequest* request) {
     String json = getSettingsJson();
@@ -1518,7 +1519,7 @@ void serverProcessing() {
     }
 
     bool isResult = saveSettings();
-    
+
     isSaveControl = true;
 
 
@@ -1545,7 +1546,8 @@ void serverProcessing() {
   });
 
   //========== Загрузка файла =========
-  server.on("/uploadFile", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on(
+    "/uploadFile", HTTP_POST, [](AsyncWebServerRequest* request) {
       // Обработчик для отправки ответа после загрузки
       request->send(200, "text/plain", "File Uploaded Successfully");
     },
@@ -1610,37 +1612,37 @@ void serverProcessing() {
       request->send(400, "application/json", "{\"success\":false,\"message\":\"Required parameters missing\"}");
     }
   });
-  
+
 
   server.on("/sysStatus", HTTP_GET, [](AsyncWebServerRequest* request) {
     String status = getSystemStatus();
     request->send(200, "text/plain", status);
   });
 
-    // Обработчик для удаления пользователя
-    server.on("/delete_user", HTTP_POST, [](AsyncWebServerRequest* request) {
+  // Обработчик для удаления пользователя
+  server.on("/delete_user", HTTP_POST, [](AsyncWebServerRequest* request) {
     if (request->hasParam("user_id", true)) {
-        String userId = request->getParam("user_id", true)->value();
-        auto& users = settings.telegramSettings.telegramUsers;
+      String userId = request->getParam("user_id", true)->value();
+      auto& users = settings.telegramSettings.telegramUsers;
 
-        // Ищем пользователя по userId
-        auto it = std::find_if(users.begin(), users.end(), [&](const auto& user) {
-            return user.id == userId;
-        });
+      // Ищем пользователя по userId
+      auto it = std::find_if(users.begin(), users.end(), [&](const auto& user) {
+        return user.id == userId;
+      });
 
-        if (it != users.end()) {
-            // Удаляем пользователя из вектора
-            users.erase(it);
-            request->send(200, "application/json", "{\"success\":true,\"message\":\"User deleted successfully\"}");
-        } else {
-            request->send(404, "application/json", "{\"message\":\"User not found\"}");
-        }
-        Serial.println(userId);
+      if (it != users.end()) {
+        // Удаляем пользователя из вектора
+        users.erase(it);
+        request->send(200, "application/json", "{\"success\":true,\"message\":\"User deleted successfully\"}");
+      } else {
+        request->send(404, "application/json", "{\"message\":\"User not found\"}");
+      }
+      Serial.println(userId);
 
     } else {
-        request->send(400, "application/json", "{\"message\":\"Invalid request\"}");
+      request->send(400, "application/json", "{\"message\":\"Invalid request\"}");
     }
- });
+  });
 
   server.begin();
 }
@@ -1760,7 +1762,7 @@ bool handleTelegramCommand(String chat_id, String command) {
       return false;
     }
   }
-  // Проверка команды "/statusControl" 
+  // Проверка команды "/statusControl"
   else if (command == "/status") {
     String sOut = sendStatus();
     bot->sendMessage(chat_id, sOut, "");
@@ -1771,7 +1773,7 @@ bool handleTelegramCommand(String chat_id, String command) {
   else if (command == "/resetManual") {
     String sOut;
     bool anyRelayUpdated;
-    
+
     for (auto& r : control.relays) {
       if (r.manualMode) {
         r.manualMode = false;  // Устанавливаем режим в Auto
@@ -1789,18 +1791,88 @@ bool handleTelegramCommand(String chat_id, String command) {
       Serial.print(sOut);
     }
     return true;
+  } //====================================================
+  // Проверка и обработка команды "/"
+  else if (command.startsWith("/setTimeInterval")) {
+    int value = command.substring(17).toInt();  // Извлечь значение
+    control.scenario.timeInterval = value;
+    Serial.printf("setTimeInterval set to %d\n", value);
+    isSaveControl = true;
+    return true;
+  } 
+  else if (command.startsWith("/startTime")) {
+    control.scenario.useSetting = true;
+    isSaveControl = true;
+    return true;
   }
-  // Проверка и обработка команды "/setLimitWorkPressurePump"
- else if (command.startsWith("/setTimeInterval")) {
-   int value = command.substring(17).toInt();  // Извлечь значение
-   control.scenario.timeInterval = value;
-   Serial.printf("setTimeInterval set to %d\n", value);
-   isSaveControl = true;
-   return true;
- }
+  // Проверка и обработка команды "/setTime"
+ else if (command.startsWith("/setTime")) {
+    isSetTimeStart = true;
+    isSetTimeEnd = false;
+
+    String sOut = "Введите начальную дату и врмя в формате: " + rtc.getTime("%d.%m.%Y %H:%M");
+    bot->sendMessage(chat_id, sOut, "");
+     
+    return true;
+
+  } else if (isSetTimeStart && !command.isEmpty() && !command.startsWith("/stopTime")) {
+    bool isValidStart = isValidDateTime(command);
+
+    if (isValidStart) {
+
+      isSetTimeStart = false;
+      isSetTimeEnd = true;
+
+      std::pair<String, String> result = splitDateTime(command);
+
+      control.scenario.startDate = result.first;
+      control.scenario.startTime = result.second;
+
+      String sOut = "Введите конечную дату и врмя в формате: " + rtc.getTime("%d.%m.%Y %H:%M");
+      bot->sendMessage(chat_id, sOut, "");
+    } else {
+      bot->sendMessage(chat_id, "Не корректный ввод. Ведите значение снова или отмените /stopTime", "");
+    }
+    return true;
+  } else if (isSetTimeEnd && !command.isEmpty() && !command.startsWith("/stopTime")) {
+    bool isValidEnd = isValidDateTime(command);
+
+    if (isValidEnd) {
+
+      isSetTimeEnd = false;
+
+      std::pair<String, String> result = splitDateTime(command);
+
+      control.scenario.endDate = result.first;
+      control.scenario.endTime = result.second;
+
+      control.scenario.useSetting = true;
+
+      String sOut = "Успешно! Теплый пол будет включен с " + convertDateFormat(control.scenario.startDate) + " " + control.scenario.startTime + " по " + convertDateFormat(control.scenario.endDate) + " " + control.scenario.endTime + "\n";
+      sOut += "Отменить /stopTime";
+      isSaveControl = true;
+      bot->sendMessage(chat_id, sOut, "");
+
+    } else {
+      bot->sendMessage(chat_id, "Не корректный ввод. Ведите значение снова или отмените /stopTime", ""); 
+    }
+    return true;
+
+  } else if (command.startsWith("/stopTime")) {
+       control.scenario.useSetting = false;
+
+       if (!control.scenario.useSetting ) {
+          bot->sendMessage(chat_id, "Отключено", "");
+          isSaveControl = true;
+       } else {
+         bot->sendMessage(chat_id, "Ошибка! Повторите ввод.", "");
+       }
+
+       return true;
+  }
   //===============
-  
-   else if (command.startsWith("/help")) {
+
+  else if (command.startsWith("/help")) {
     bool value = command.substring(5).equalsIgnoreCase("true");  // Извлечь значение
     String res = sendHelp();
     bot->sendMessage(chat_id, res, "");

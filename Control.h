@@ -5,6 +5,8 @@
 #include <WiFi.h>
 #include <time.h>
 
+#include <ctype.h>
+
 #include <AsyncDelay.h>
 //#include <jsnsr04t.h>
 
@@ -32,6 +34,7 @@ struct Scenario {
   String endTime;            // Время выключения
   int pinRelays;
   int pinRelays2;  // Номер пина реле
+  //std::vector<int> indexRelay;
   int timeInterval;
   bool week[7];
 };
@@ -144,6 +147,116 @@ int stringToModePin(String mode) {
   }
 }
 
+//======== работа с датами
+
+String convertDateFormat(const String& inputDate) {
+    // Заменяем тире на точки
+    String date = inputDate;
+    date.replace("-", ".");
+
+    // Переставляем местами части даты
+    String day = date.substring(8, 10);
+    String month = date.substring(5, 7);
+    String year = date.substring(0, 4);
+
+    // Собираем результат в формате DD.MM.YYYY
+    return day + "." + month + "." + year;
+}
+
+// Функция для проверки, состоит ли строка только из цифр
+bool isNumeric(const String& str) {
+    for (size_t i = 0; i < str.length(); i++) {
+        if (!isdigit(str.charAt(i))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isValidDateTime(const String& dateTime) {
+    // Находим индекс пробела, который разделяет дату и время
+    int spaceIndex = dateTime.indexOf(' ');
+    if (spaceIndex == -1) return false;  // Пробел отсутствует
+
+    // Разделяем строку на дату и время
+    String date = dateTime.substring(0, spaceIndex);
+    String time = dateTime.substring(spaceIndex + 1);
+
+    // Находим разделители в дате (точки)
+    int dot1 = date.indexOf('.');
+    int dot2 = date.lastIndexOf('.');
+
+    // Проверяем, что разделители есть и правильно расположены
+    if (dot1 == -1 || dot2 == -1 || dot1 == dot2) return false;
+
+    // Разделяем дату на день, месяц и год
+    String day = date.substring(0, dot1);
+    String month = date.substring(dot1 + 1, dot2);
+    String year = date.substring(dot2 + 1);
+
+    // Проверяем, что все части даты содержат только цифры
+    if (!isNumeric(day) || !isNumeric(month) || !isNumeric(year)) return false;
+
+    // Преобразуем в числа
+    int dayInt = day.toInt();
+    int monthInt = month.toInt();
+    int yearInt = year.toInt();
+
+    // Проверяем диапазоны для дня, месяца и года
+    if (dayInt < 1 || dayInt > 31 || monthInt < 1 || monthInt > 12 || yearInt < 1000 || yearInt > 9999) {
+        return false;
+    }
+
+    // Проверяем формат времени (должно быть HH:MM, H:MM или HH:M)
+    int colonIndex = time.indexOf(':');
+    if (colonIndex == -1) return false;  // Нет двоеточия
+
+    String hour = time.substring(0, colonIndex);
+    String minute = time.substring(colonIndex + 1);
+
+    // Проверяем, что оба значения содержат только цифры
+    if (!isNumeric(hour) || !isNumeric(minute)) return false;
+
+    // Преобразуем время в числа
+    int hourInt = hour.toInt();
+    int minuteInt = minute.toInt();
+
+    // Проверяем диапазоны для времени
+    if (hourInt < 0 || hourInt > 23 || minuteInt < 0 || minuteInt > 59) {
+        return false;
+    }
+
+    return true;
+}
+
+std::pair<String, String> splitDateTime(const String& dateTime) {
+    // Разделяем строку на дату и время
+    int spaceIndex = dateTime.indexOf(' ');
+
+    String date = dateTime.substring(0, spaceIndex);
+    String time = dateTime.substring(spaceIndex + 1);
+
+    // Разделим дату на день, месяц, год
+    int dot1 = date.indexOf('.');
+    int dot2 = date.lastIndexOf('.');
+
+    String day = date.substring(0, dot1);   // День
+    String month = date.substring(dot1 + 1, dot2);  // Месяц
+    String year = date.substring(dot2 + 1); // Год
+
+    // Добавляем ведущий ноль, если день или месяц состоит из одной цифры
+    day = day.length() == 1 ? "0" + day : day;
+    month = month.length() == 1 ? "0" + month : month;
+
+    // Формируем строку в формате YYYY-MM-DD
+    String formattedDate = year + "-" + month + "-" + day;
+
+    // Возвращаем кортеж (пару): дату и время
+    return std::make_pair(formattedDate, time);
+}
+
+//=======================
+
 void setupControl() {
   // Кнопки датчики //
 
@@ -198,16 +311,20 @@ int timer1 = 0;
 bool relay1State = false;
 
 void toggleRelays() {
+
   int relay1Pin = control.scenario.pinRelays;
   int relay2Pin = control.scenario.pinRelays2;
 
   if (relay1State) {
+    delay(100);
     // Если реле1 включено, выключаем его и включаем реле2
     digitalWrite(relay1Pin, LOW);
     digitalWrite(relay2Pin, HIGH);
     relay1State = false;
     Serial.println("Relay1 OFF, Relay2 ON");
+    
   } else {
+    delay(100);
     // Если реле2 включено, выключаем его и включаем реле1
     digitalWrite(relay2Pin, LOW);
     digitalWrite(relay1Pin, HIGH);
@@ -215,6 +332,45 @@ void toggleRelays() {
     Serial.println("Relay2 OFF, Relay1 ON");
   }
 }
+
+// struct Relay {
+//     int pin;
+//     bool state; // Состояние реле: true - включено, false - выключено
+// };
+
+// void toggleRelays(Relay relays[], int relayCount, unsigned long interval) {
+//     static int currentRelayIndex = 0;         // Текущий индекс реле
+//     static unsigned long lastToggleTime = 0; // Время последнего переключения
+
+//     unsigned long currentTime = millis(); // Текущее время
+
+//     // Проверяем, прошел ли временной интервал
+//     if (currentTime - lastToggleTime >= interval) {
+//         // Выключаем текущее реле
+//         digitalWrite(relays[currentRelayIndex].pin, LOW);
+//         relays[currentRelayIndex].state = false;
+
+//         // Переходим к следующему реле
+//         currentRelayIndex = (currentRelayIndex + 1) % relayCount;
+
+//         // Включаем следующее реле
+//         digitalWrite(relays[currentRelayIndex].pin, HIGH);
+//         relays[currentRelayIndex].state = true;
+
+//         // Отмечаем время переключения
+//         lastToggleTime = currentTime;
+
+//         // Выводим отчет в Serial
+//         Serial.print("Relay ");
+//         Serial.print(currentRelayIndex);
+//         Serial.println(" ON");
+
+//         Serial.print("Time since last toggle: ");
+//         Serial.print(currentTime - lastToggleTime);
+//         Serial.println(" ms");
+//     }
+// }
+
 
 void scenarioRele(bool start) {
   int relayInterval = control.scenario.timeInterval;
@@ -240,6 +396,7 @@ void scenarioRele(bool start) {
       startTimer1 = true;
 
       if (timer1 >= relayInterval) {
+        delay(0);
         toggleRelays();
         timer1 = 0;
       }
@@ -297,10 +454,11 @@ time_t getCurrentTimeFromRTC() {
   return now;                   // Возвращаем как time_t
 }
 
-
 //=================================================
 
 void mainScenario(void (*callFunc)(String)) {
+
+  delay(200);
 
   if (Serial.available() > 0) {
     String arg = Serial.readString();
@@ -312,6 +470,7 @@ void mainScenario(void (*callFunc)(String)) {
 
   // Проверяем, включено ли использование настройки
   if (control.scenario.useSetting) {
+
     // Преобразуем строки даты и времени в `time_t`
     time_t startDateTime = convertToTimeT(control.scenario.startDate, control.scenario.startTime);
     time_t endDateTime = convertToTimeT(control.scenario.endDate, control.scenario.endTime);
@@ -342,6 +501,7 @@ void mainScenario(void (*callFunc)(String)) {
 
         // Сравниваем время в минутах
         if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+
           // Если установлена галочка температуры
           if (control.scenario.temperatureCheckbox) {
             // Если текущая температура меньше заданной, включаем реле
@@ -533,6 +693,23 @@ String sendStatus() {
     helpText += String(commandOn + " " + commandOff + " - " + relay.description + " (" + mode_ + " / " + state_ + ")\n\n");
     relayIndex++;
   }
+
+  helpText += "Температура: " + String(currentTemp) + " °С\n";
+  helpText += "\n";
+
+  String tmpMsg = convertDateFormat(control.scenario.startDate) + " " + control.scenario.startTime + " по " + convertDateFormat(control.scenario.endDate) + " " + control.scenario.endTime + "\n";
+  if (control.scenario.useSetting) {
+    helpText += "Включено. Установленное расписание " + tmpMsg;
+  } else {
+    helpText += "Отключено. Установленное расписание " + tmpMsg;
+  }
+
+  helpText += "Установить расписание /setTime\n";
+  helpText += "Включить /startTime\n";
+  helpText += "Отменить /stopTime\n";
+
+  helpText += "\n";
+
 
   helpText += "/resetManual - Сбросить в Auto\n";
   helpText += "/status - Статус и управление \n";
