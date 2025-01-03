@@ -13,9 +13,9 @@
 ESP32Time rtc;
 
 // PID переменные
-double setpoint = 25.0;   // Целевая температура, °C
-double input;             // Текущая температура
-double output;            // Выход PID-регулятора
+double setpoint = 25.0;  // Целевая температура, °C
+double input;            // Текущая температура
+double output;           // Выход PID-регулятора
 
 // PID параметры (проверьте для вашего приложения)
 double Kp = 2.0, Ki = 5.0, Kd = 1.0;
@@ -33,7 +33,7 @@ PID myPID(&input, &output, &setpoint, Kp, Ki, Kd, DIRECT);
 const int tempPin = 32;
 
 #define B 3950              // B-коэффициент
-#define SERIAL_R 22230 //22230 10000  10230    // сопротивление последовательного резистора, 10 кОм
+#define SERIAL_R 22230      //22230 10000  10230    // сопротивление последовательного резистора, 10 кОм
 #define THERMISTOR_R 10000  // номинальное сопротивления термистора, 10 кОм
 #define NOMINAL_T 25        // номинальная температура (при которой TR = 10 кОм)  #define B 3950 // B-коэффициент \
                             // номинальная температура (при которой TR = 10 кОм)
@@ -100,7 +100,7 @@ void initializeControl() {
 
 //==================================
 // температура при которой включается скваженный насос, если меньше насос не работает. Будет по другому когда будет компрессор
-float currentTemp = 0.5; 
+float currentTemp = 0.5;
 String text = "";
 
 //
@@ -167,109 +167,109 @@ int stringToModePin(String mode) {
 //======== работа с датами
 
 String convertDateFormat(const String& inputDate) {
-    // Заменяем тире на точки
-    String date = inputDate;
-    date.replace("-", ".");
+  // Заменяем тире на точки
+  String date = inputDate;
+  date.replace("-", ".");
 
-    // Переставляем местами части даты
-    String day = date.substring(8, 10);
-    String month = date.substring(5, 7);
-    String year = date.substring(0, 4);
+  // Переставляем местами части даты
+  String day = date.substring(8, 10);
+  String month = date.substring(5, 7);
+  String year = date.substring(0, 4);
 
-    // Собираем результат в формате DD.MM.YYYY
-    return day + "." + month + "." + year;
+  // Собираем результат в формате DD.MM.YYYY
+  return day + "." + month + "." + year;
 }
 
 // Функция для проверки, состоит ли строка только из цифр
 bool isNumeric(const String& str) {
-    for (size_t i = 0; i < str.length(); i++) {
-        if (!isdigit(str.charAt(i))) {
-            return false;
-        }
+  for (size_t i = 0; i < str.length(); i++) {
+    if (!isdigit(str.charAt(i))) {
+      return false;
     }
-    return true;
+  }
+  return true;
 }
 
 bool isValidDateTime(const String& dateTime) {
-    // Находим индекс пробела, который разделяет дату и время
-    int spaceIndex = dateTime.indexOf(' ');
-    if (spaceIndex == -1) return false;  // Пробел отсутствует
+  // Находим индекс пробела, который разделяет дату и время
+  int spaceIndex = dateTime.indexOf(' ');
+  if (spaceIndex == -1) return false;  // Пробел отсутствует
 
-    // Разделяем строку на дату и время
-    String date = dateTime.substring(0, spaceIndex);
-    String time = dateTime.substring(spaceIndex + 1);
+  // Разделяем строку на дату и время
+  String date = dateTime.substring(0, spaceIndex);
+  String time = dateTime.substring(spaceIndex + 1);
 
-    // Находим разделители в дате (точки)
-    int dot1 = date.indexOf('.');
-    int dot2 = date.lastIndexOf('.');
+  // Находим разделители в дате (точки)
+  int dot1 = date.indexOf('.');
+  int dot2 = date.lastIndexOf('.');
 
-    // Проверяем, что разделители есть и правильно расположены
-    if (dot1 == -1 || dot2 == -1 || dot1 == dot2) return false;
+  // Проверяем, что разделители есть и правильно расположены
+  if (dot1 == -1 || dot2 == -1 || dot1 == dot2) return false;
 
-    // Разделяем дату на день, месяц и год
-    String day = date.substring(0, dot1);
-    String month = date.substring(dot1 + 1, dot2);
-    String year = date.substring(dot2 + 1);
+  // Разделяем дату на день, месяц и год
+  String day = date.substring(0, dot1);
+  String month = date.substring(dot1 + 1, dot2);
+  String year = date.substring(dot2 + 1);
 
-    // Проверяем, что все части даты содержат только цифры
-    if (!isNumeric(day) || !isNumeric(month) || !isNumeric(year)) return false;
+  // Проверяем, что все части даты содержат только цифры
+  if (!isNumeric(day) || !isNumeric(month) || !isNumeric(year)) return false;
 
-    // Преобразуем в числа
-    int dayInt = day.toInt();
-    int monthInt = month.toInt();
-    int yearInt = year.toInt();
+  // Преобразуем в числа
+  int dayInt = day.toInt();
+  int monthInt = month.toInt();
+  int yearInt = year.toInt();
 
-    // Проверяем диапазоны для дня, месяца и года
-    if (dayInt < 1 || dayInt > 31 || monthInt < 1 || monthInt > 12 || yearInt < 1000 || yearInt > 9999) {
-        return false;
-    }
+  // Проверяем диапазоны для дня, месяца и года
+  if (dayInt < 1 || dayInt > 31 || monthInt < 1 || monthInt > 12 || yearInt < 1000 || yearInt > 9999) {
+    return false;
+  }
 
-    // Проверяем формат времени (должно быть HH:MM, H:MM или HH:M)
-    int colonIndex = time.indexOf(':');
-    if (colonIndex == -1) return false;  // Нет двоеточия
+  // Проверяем формат времени (должно быть HH:MM, H:MM или HH:M)
+  int colonIndex = time.indexOf(':');
+  if (colonIndex == -1) return false;  // Нет двоеточия
 
-    String hour = time.substring(0, colonIndex);
-    String minute = time.substring(colonIndex + 1);
+  String hour = time.substring(0, colonIndex);
+  String minute = time.substring(colonIndex + 1);
 
-    // Проверяем, что оба значения содержат только цифры
-    if (!isNumeric(hour) || !isNumeric(minute)) return false;
+  // Проверяем, что оба значения содержат только цифры
+  if (!isNumeric(hour) || !isNumeric(minute)) return false;
 
-    // Преобразуем время в числа
-    int hourInt = hour.toInt();
-    int minuteInt = minute.toInt();
+  // Преобразуем время в числа
+  int hourInt = hour.toInt();
+  int minuteInt = minute.toInt();
 
-    // Проверяем диапазоны для времени
-    if (hourInt < 0 || hourInt > 23 || minuteInt < 0 || minuteInt > 59) {
-        return false;
-    }
+  // Проверяем диапазоны для времени
+  if (hourInt < 0 || hourInt > 23 || minuteInt < 0 || minuteInt > 59) {
+    return false;
+  }
 
-    return true;
+  return true;
 }
 
 std::pair<String, String> splitDateTime(const String& dateTime) {
-    // Разделяем строку на дату и время
-    int spaceIndex = dateTime.indexOf(' ');
+  // Разделяем строку на дату и время
+  int spaceIndex = dateTime.indexOf(' ');
 
-    String date = dateTime.substring(0, spaceIndex);
-    String time = dateTime.substring(spaceIndex + 1);
+  String date = dateTime.substring(0, spaceIndex);
+  String time = dateTime.substring(spaceIndex + 1);
 
-    // Разделим дату на день, месяц, год
-    int dot1 = date.indexOf('.');
-    int dot2 = date.lastIndexOf('.');
+  // Разделим дату на день, месяц, год
+  int dot1 = date.indexOf('.');
+  int dot2 = date.lastIndexOf('.');
 
-    String day = date.substring(0, dot1);   // День
-    String month = date.substring(dot1 + 1, dot2);  // Месяц
-    String year = date.substring(dot2 + 1); // Год
+  String day = date.substring(0, dot1);           // День
+  String month = date.substring(dot1 + 1, dot2);  // Месяц
+  String year = date.substring(dot2 + 1);         // Год
 
-    // Добавляем ведущий ноль, если день или месяц состоит из одной цифры
-    day = day.length() == 1 ? "0" + day : day;
-    month = month.length() == 1 ? "0" + month : month;
+  // Добавляем ведущий ноль, если день или месяц состоит из одной цифры
+  day = day.length() == 1 ? "0" + day : day;
+  month = month.length() == 1 ? "0" + month : month;
 
-    // Формируем строку в формате YYYY-MM-DD
-    String formattedDate = year + "-" + month + "-" + day;
+  // Формируем строку в формате YYYY-MM-DD
+  String formattedDate = year + "-" + month + "-" + day;
 
-    // Возвращаем кортеж (пару): дату и время
-    return std::make_pair(formattedDate, time);
+  // Возвращаем кортеж (пару): дату и время
+  return std::make_pair(formattedDate, time);
 }
 
 //=======================
@@ -278,7 +278,7 @@ void setupControl() {
   // Кнопки датчики //
   // Инициализация PID
   myPID.SetMode(AUTOMATIC);
-  myPID.SetOutputLimits(0, 255); // Выход PID-регулятора в диапазоне 0-255
+  myPID.SetOutputLimits(0, 255);  // Выход PID-регулятора в диапазоне 0-255
 
   //pinMode(sensButtonPin_1, INPUT_PULLDOWN);
 
@@ -414,40 +414,40 @@ time_t getCurrentTimeFromRTC() {
 }
 
 String formatDateTime(time_t rawTime) {
-    struct tm timeInfo;
-    localtime_r(&rawTime, &timeInfo); // Преобразуем time_t в структуру tm
+  struct tm timeInfo;
+  localtime_r(&rawTime, &timeInfo);  // Преобразуем time_t в структуру tm
 
-    // Форматируем строку: DD.MM.YYYY HH:MM
-    char buffer[20];
-    snprintf(buffer, sizeof(buffer), "%02d.%02d.%04d %02d:%02d",
-             timeInfo.tm_mday,
-             timeInfo.tm_mon + 1,  // Месяц в tm начинается с 0
-             timeInfo.tm_year + 1900, // Год в tm начинается с 1900
-             timeInfo.tm_hour,
-             timeInfo.tm_min);
+  // Форматируем строку: DD.MM.YYYY HH:MM
+  char buffer[20];
+  snprintf(buffer, sizeof(buffer), "%02d.%02d.%04d %02d:%02d",
+           timeInfo.tm_mday,
+           timeInfo.tm_mon + 1,      // Месяц в tm начинается с 0
+           timeInfo.tm_year + 1900,  // Год в tm начинается с 1900
+           timeInfo.tm_hour,
+           timeInfo.tm_min);
 
-    return String(buffer);
+  return String(buffer);
 }
 
 time_t convertOnlyDate(time_t rawTime) {
-    struct tm timeInfo;
-    localtime_r(&rawTime, &timeInfo); // Преобразуем time_t в структуру tm
+  struct tm timeInfo;
+  localtime_r(&rawTime, &timeInfo);  // Преобразуем time_t в структуру tm
 
-    // Сбрасываем время на 00:00:00
-    timeInfo.tm_hour = 0;
-    timeInfo.tm_min = 0;
-    timeInfo.tm_sec = 0;
+  // Сбрасываем время на 00:00:00
+  timeInfo.tm_hour = 0;
+  timeInfo.tm_min = 0;
+  timeInfo.tm_sec = 0;
 
-    // Преобразуем обратно в time_t
-    return mktime(&timeInfo);
+  // Преобразуем обратно в time_t
+  return mktime(&timeInfo);
 }
 
 //=================================================
 
 static unsigned long lastUpdate = 0;
 
-String msg[20] = {"", "", "", "", "", ""};
-String lastMsg[20] = {"", "", "", "", "", ""};
+String msg[20] = { "", "", "", "", "", "" };
+String lastMsg[20] = { "", "", "", "", "", "" };
 
 bool startTimer1 = false;
 int timer1 = 0;
@@ -466,12 +466,12 @@ void toggleRelays() {
       Serial.println(msg[5]);
       lastMsg[5] = msg[5];
 
-    digitalWrite(relay1Pin, LOW);
-    digitalWrite(relay2Pin, HIGH);
-    relay1State = false;
+      digitalWrite(relay1Pin, LOW);
+      digitalWrite(relay2Pin, HIGH);
+      relay1State = false;
     }
   } else {
-    
+
     msg[5] = "Relay2 Off, Relay1 On";
     if (msg[5] != lastMsg[5]) {
       Serial.println(msg[5]);
@@ -479,7 +479,7 @@ void toggleRelays() {
 
       digitalWrite(relay2Pin, LOW);
       digitalWrite(relay1Pin, HIGH);
-    relay1State = true;
+      relay1State = true;
     }
   }
 }
@@ -513,7 +513,7 @@ void scenarioRele(bool start) {
       }
 
       if (timer1 >= relayInterval) {
-        timer1 = 0; // Сбрасываем таймер после переключения
+        timer1 = 0;  // Сбрасываем таймер после переключения
       }
     } else {
       // Останавливаем сценарий и отключаем оба реле
@@ -533,135 +533,126 @@ void scenarioRele(bool start) {
 //=================================================
 
 void mainScenario(void (*callFunc)(String)) {
-  
-  if (millis() - lastUpdate >= 200) { //delay(200);
+
+  if (millis() - lastUpdate >= 200) {  //delay(200);
     lastUpdate = millis();
 
-  currentTemp = getTemp();
-  setpoint = control.scenario.temperature;
-  input = currentTemp;
-  myPID.Compute();
+    currentTemp = getTemp();
+    setpoint = control.scenario.temperature;
+    input = currentTemp;
+    myPID.Compute();
 
-  if (Serial.available() > 0) {
-    String arg = Serial.readString();
-    manualWork(arg);
-    if (debug) {
-      debugInfo();
-    }
-  }
-
-  if (control.scenario.useSetting) {
-
-    msg[0] = "Включение сценария";
-    if (msg[0] != lastMsg[0]) {
-      Serial.println(msg[0]);
-      lastMsg[0] = msg[0];
+    if (Serial.available() > 0) {
+      String arg = Serial.readString();
+      manualWork(arg);
+      if (debug) {
+        debugInfo();
+      }
     }
 
-    time_t startDate = convertToTimeT(control.scenario.startDate);
-    time_t endDate = convertToTimeT(control.scenario.endDate);
-    time_t currentDateTime = getCurrentTimeFromRTC();
-    time_t currentDate = convertOnlyDate(currentDateTime);
+    if (control.scenario.useSetting) {
 
-    struct tm currentTime;
-    localtime_r(&currentDateTime, &currentTime);
-
-    if (currentDate >= startDate && currentDate <= endDate) {
-      msg[1] = "Текущая дата в установленном диапазоне";
-      if (msg[1] != lastMsg[1]) {
-        Serial.println(msg[1]);
-        lastMsg[1] = msg[1];
+      msg[0] = "Включение сценария";
+      if (msg[0] != lastMsg[0]) {
+        Serial.println(msg[0]);
+        lastMsg[0] = msg[0];
       }
 
-      if (control.scenario.week[shiftWeekDay(currentTime.tm_wday)]) {
-        msg[2] = "Текущий день включен в массиве недели";
-        if (msg[2] != lastMsg[2]) {
-          Serial.println(msg[2]);
-          lastMsg[2] = msg[2];
+      time_t startDate = convertToTimeT(control.scenario.startDate);
+      time_t endDate = convertToTimeT(control.scenario.endDate);
+      time_t currentDateTime = getCurrentTimeFromRTC();
+      time_t currentDate = convertOnlyDate(currentDateTime);
+
+      struct tm currentTime;
+      localtime_r(&currentDateTime, &currentTime);
+
+      if (currentDate >= startDate && currentDate <= endDate) {
+        msg[1] = "Текущая дата в установленном диапазоне";
+        if (msg[1] != lastMsg[1]) {
+          Serial.println(msg[1]);
+          lastMsg[1] = msg[1];
         }
 
-        int currentMinutes = currentTime.tm_hour * 60 + currentTime.tm_min;
-        int startMinutes = control.scenario.startTime.substring(0, 2).toInt() * 60 +
-                           control.scenario.startTime.substring(3, 5).toInt();
-        int endMinutes = control.scenario.endTime.substring(0, 2).toInt() * 60 +
-                         control.scenario.endTime.substring(3, 5).toInt();
-
-        if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
-          msg[3] = "Текущие минуты больше установленных";
-          if (msg[3] != lastMsg[3]) {
-            Serial.println(msg[3]);
-            lastMsg[3] = msg[3];
+        if (control.scenario.week[shiftWeekDay(currentTime.tm_wday)]) {
+          msg[2] = "Текущий день включен в массиве недели";
+          if (msg[2] != lastMsg[2]) {
+            Serial.println(msg[2]);
+            lastMsg[2] = msg[2];
           }
 
-          if (control.scenario.temperatureCheckbox) {
-            if (output > control.scenario.temperature) {
+          int currentMinutes = currentTime.tm_hour * 60 + currentTime.tm_min;
+          int startMinutes = control.scenario.startTime.substring(0, 2).toInt() * 60 + control.scenario.startTime.substring(3, 5).toInt();
+          int endMinutes = control.scenario.endTime.substring(0, 2).toInt() * 60 + control.scenario.endTime.substring(3, 5).toInt();
 
-              msg[4] = "Текущая температура меньше установленной";
-              if (msg[4] != lastMsg[4]) {
-                Serial.println(msg[4]);
-                lastMsg[4] = msg[4];
-              }
-              scenarioRele(true);
-              
-            } else {
-              msg[4] = "Текущая температура больше установленной";
-              if (msg[4] != lastMsg[4]) {
-                Serial.println(msg[4]);
-                lastMsg[4] = msg[4];
-              }
-              scenarioRele(false);
-
+          if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+            msg[3] = "Текущие минуты больше установленных";
+            if (msg[3] != lastMsg[3]) {
+              Serial.println(msg[3]);
+              lastMsg[3] = msg[3];
             }
-          } else {
-            msg[8] = "Слежение за температурой отключено";
+
+            if (control.scenario.temperatureCheckbox) {
+              if (output > control.scenario.temperature) {
+
+                msg[4] = "Текущая температура меньше установленной";
+                if (msg[4] != lastMsg[4]) {
+                  Serial.println(msg[4]);
+                  lastMsg[4] = msg[4];
+                }
+                scenarioRele(true);
+
+              } else {
+                msg[4] = "Текущая температура больше установленной";
+                if (msg[4] != lastMsg[4]) {
+                  Serial.println(msg[4]);
+                  lastMsg[4] = msg[4];
+                }
+                scenarioRele(false);
+              }
+            } else {
+              msg[8] = "Слежение за температурой отключено";
               if (msg[8] != lastMsg[8]) {
                 Serial.println(msg[8]);
                 lastMsg[8] = msg[8];
               }
               scenarioRele(true);
-
+            }
+          } else {
+            msg[3] = "Текущие минуты меньше установленных";
+            if (msg[3] != lastMsg[3]) {
+              Serial.println(msg[3]);
+              lastMsg[3] = msg[3];
+            }
+            scenarioRele(false);
           }
         } else {
-          msg[3] = "Текущие минуты меньше установленных";
-          if (msg[3] != lastMsg[3]) {
-            Serial.println(msg[3]);
-            lastMsg[3] = msg[3];
+          msg[2] = "Текущий день вне массива недели";
+          if (msg[2] != lastMsg[2]) {
+            Serial.println(msg[2]);
+            lastMsg[2] = msg[2];
           }
-           scenarioRele(false);
-
+          scenarioRele(false);
         }
       } else {
-        msg[2] = "Текущий день вне массива недели";
-        if (msg[2] != lastMsg[2]) {
-          Serial.println(msg[2]);
-          lastMsg[2] = msg[2];
+        msg[1] = "Текущая дата вне установленного диапазона";
+        if (msg[1] != lastMsg[1]) {
+          Serial.println(msg[1]);
+          lastMsg[1] = msg[1];
         }
-           scenarioRele(false);
-
+        scenarioRele(false);
       }
     } else {
-      msg[1] = "Текущая дата вне установленного диапазона";
-      if (msg[1] != lastMsg[1]) {
-        Serial.println(msg[1]);
-        lastMsg[1] = msg[1];
+      msg[0] = "Выключение сценария";
+      if (msg[0] != lastMsg[0]) {
+        Serial.println(msg[0]);
+        lastMsg[0] = msg[0];
       }
       scenarioRele(false);
-      
     }
-  } else {
-    msg[0] = "Выключение сценария";
-    if (msg[0] != lastMsg[0]) {
-      Serial.println(msg[0]);
-      lastMsg[0] = msg[0];
 
-      }
-      scenarioRele(false);
+    printRelayStates(callFunc);
 
-    }
-    
-  printRelayStates(callFunc);
-
-  } // millis end
+  }  // millis end
 }
 //====================================================
 
@@ -833,7 +824,7 @@ String sendStatus() {
 
   helpText += "Установить расписание /setTime\n";
   helpText += "Включить /startTime\n";
-  helpText += "Отменить /stopTime\n"; 
+  helpText += "Отменить /stopTime\n";
 
   helpText += "\n";
 

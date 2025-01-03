@@ -21,8 +21,8 @@
 Ticker ticker;
 //=================================
 
- bool isSetTimeStart = false;
- bool isSetTimeEnd = false;
+bool isSetTimeStart = false;
+bool isSetTimeEnd = false;
 
 //=================================
 bool isConnectionAttempts = true;
@@ -257,7 +257,7 @@ String getSettingsJson() {
   JsonObject telegramSettingsObj = root.createNestedObject("telegramSettings");
   telegramSettingsObj["isTelegramOn"] = settings.telegramSettings.isTelegramOn;
   telegramSettingsObj["botId"] = settings.telegramSettings.botId;
-  telegramSettingsObj["lastMessage"] = settings.telegramSettings.lastMessage; 
+  telegramSettingsObj["lastMessage"] = settings.telegramSettings.lastMessage;
   telegramSettingsObj["isPush"] = settings.telegramSettings.isPush;
 
   // Добавляем информацию о пользователях Telegram
@@ -345,9 +345,9 @@ bool saveSettings(bool wdt = false) {
   JsonObject telegramSettingsObj = doc.createNestedObject("telegramSettings");
   telegramSettingsObj["isTelegramOn"] = settings.telegramSettings.isTelegramOn;
   telegramSettingsObj["botId"] = settings.telegramSettings.botId;
-  telegramSettingsObj["lastMessage"] = settings.telegramSettings.lastMessage; 
+  telegramSettingsObj["lastMessage"] = settings.telegramSettings.lastMessage;
   telegramSettingsObj["lastMessage"] = settings.telegramSettings.isPush;
-  
+
   // Добавляем информацию о пользователях Telegram
   JsonArray usersArray = telegramSettingsObj.createNestedArray("telegramUsers");
   for (const auto& user : settings.telegramSettings.telegramUsers) {
@@ -626,8 +626,7 @@ void setTimeManually(const String& date, const String& time) {
   int minute = time.substring(3, 5).toInt();
 
   // Проверяем корректность данных
-  if (year < 2000 || year > 9100 || month < 1 || month > 12 || day < 1 || day > 31 ||
-      hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+  if (year < 2000 || year > 9100 || month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
     Serial.println("Error: Invalid date or time values.");
     return;
   }
@@ -643,7 +642,7 @@ void setTimeManually(const String& date, const String& time) {
 
   // Устанавливаем время в RTC
   time_t newEpoch = mktime(&newTime);  // Конвертируем структуру tm в time_t
-  rtc.setTime(newEpoch);  // Устанавливаем время в RTC
+  rtc.setTime(newEpoch);               // Устанавливаем время в RTC
 
   // Считываем и обновляем локальное время
   getTimeFromRTC();
@@ -1217,33 +1216,33 @@ void serverProcessingControl() {
   });
 
 
-server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
     String json = "{";
     json += "\"relays\":[";
 
     bool firstRelay = true;
     for (const auto& relay : control.relays) {
-        if (!firstRelay) {
-            json += ",";
-        }
-        firstRelay = false;
+      if (!firstRelay) {
+        json += ",";
+      }
+      firstRelay = false;
 
-        json += "{";
-        json += "\"description\":\"" + relay.description + "\",";
-        json += "\"state\":" + String(digitalRead(relay.pin) ? "true" : "false") + ",";
-        json += "\"mode\":\"" + String(relay.manualMode ? "Manual" : "Auto") + "\"";
-        json += "}";
+      json += "{";
+      json += "\"description\":\"" + relay.description + "\",";
+      json += "\"state\":" + String(digitalRead(relay.pin) ? "true" : "false") + ",";
+      json += "\"mode\":\"" + String(relay.manualMode ? "Manual" : "Auto") + "\"";
+      json += "}";
     }
 
     json += "],";
-    json += "\"temp\":" + String(currentTemp) + ",";  // Корректная запятая
+    json += "\"temp\":" + String(currentTemp) + ",";                                    // Корректная запятая
     json += "\"currentDateTime\":\"" + formatDateTime(getCurrentTimeFromRTC()) + "\"";  // Строка с кавычками
     json += "}";
 
     request->send(200, "application/json", json);
 
     // Serial.println(json);  // Для диагностики
-});
+  });
 
 
 
@@ -1410,32 +1409,32 @@ void serverProcessing() {
 
   //=======================
 
- // Обработчик POST-запроса для утановки даты и времени
-server.on("/setDateTime", HTTP_POST, [](AsyncWebServerRequest* request) {
-  printRequestParameters(request);
-  
+  // Обработчик POST-запроса для утановки даты и времени
+  server.on("/setDateTime", HTTP_POST, [](AsyncWebServerRequest* request) {
+    printRequestParameters(request);
+
     if (request->hasParam("date", true) && request->hasParam("time", true)) {
-        // Получаем параметры из тела запроса (через FormData)
-        String dateS = request->getParam("date", true)->value();
-        String timeS = request->getParam("time", true)->value();
+      // Получаем параметры из тела запроса (через FormData)
+      String dateS = request->getParam("date", true)->value();
+      String timeS = request->getParam("time", true)->value();
 
-        // Проверяем, что дата и время присутствуют
-        if (dateS.isEmpty() || timeS.isEmpty()) {
-            request->send(400, "application/json", "{\"message\":\"Date and time are required\"}");
-            return;
-        }
-
-        // Устанавливаем дату и время вручную
-        setTimeManually(dateS, timeS);
-
-        // Возвращаем успешный ответ
-        request->send(200, "application/json", "{\"message\":\"Date and time successfully updated\"}");
-        Serial.println("Date and time updated to: " + dateS + " " + timeS);
-    } else {
-        // Если не найдены параметры date или time
+      // Проверяем, что дата и время присутствуют
+      if (dateS.isEmpty() || timeS.isEmpty()) {
         request->send(400, "application/json", "{\"message\":\"Date and time are required\"}");
+        return;
+      }
+
+      // Устанавливаем дату и время вручную
+      setTimeManually(dateS, timeS);
+
+      // Возвращаем успешный ответ
+      request->send(200, "application/json", "{\"message\":\"Date and time successfully updated\"}");
+      Serial.println("Date and time updated to: " + dateS + " " + timeS);
+    } else {
+      // Если не найдены параметры date или time
+      request->send(400, "application/json", "{\"message\":\"Date and time are required\"}");
     }
-});
+  });
 
 
   // Обработчик для получения списка файлов
@@ -1849,7 +1848,7 @@ bool handleTelegramCommand(String chat_id, String command) {
       return false;
     }
   }
-   // Проверка команды ""
+  // Проверка команды ""
   else if (command == "/pushOff") {
     settings.telegramSettings.isPush = false;
     isSaveControl = true;
@@ -1858,14 +1857,14 @@ bool handleTelegramCommand(String chat_id, String command) {
     return true;
   }
 
-   else if (command == "/pushOn") {
+  else if (command == "/pushOn") {
     settings.telegramSettings.isPush = true;
     isSaveControl = true;
     String sOut = "Уведомления включены";
     bot->sendMessage(chat_id, sOut, "");
     return true;
   }
-  
+
   // Проверка команды "/statusControl"
   else if (command == "/status") {
     String sOut = sendStatus();
@@ -1895,7 +1894,7 @@ bool handleTelegramCommand(String chat_id, String command) {
       Serial.print(sOut);
     }
     return true;
-  } //====================================================
+  }  //====================================================
   // Проверка и обработка команды "/"
   else if (command.startsWith("/setTimeInterval")) {
     int value = command.substring(17).toInt();  // Извлечь значение
@@ -1903,20 +1902,19 @@ bool handleTelegramCommand(String chat_id, String command) {
     Serial.printf("setTimeInterval set to %d\n", value);
     isSaveControl = true;
     return true;
-  } 
-  else if (command.startsWith("/startTime")) {
+  } else if (command.startsWith("/startTime")) {
     control.scenario.useSetting = true;
     isSaveControl = true;
     return true;
   }
   // Проверка и обработка команды "/setTime"
- else if (command.startsWith("/setTime")) {
+  else if (command.startsWith("/setTime")) {
     isSetTimeStart = true;
     isSetTimeEnd = false;
 
     String sOut = "Введите начальную дату и врмя в формате: " + rtc.getTime("%d.%m.%Y %H:%M");
     bot->sendMessage(chat_id, sOut, "");
-     
+
     return true;
 
   } else if (isSetTimeStart && !command.isEmpty() && !command.startsWith("/stopTime")) {
@@ -1958,21 +1956,21 @@ bool handleTelegramCommand(String chat_id, String command) {
       bot->sendMessage(chat_id, sOut, "");
 
     } else {
-      bot->sendMessage(chat_id, "Не корректный ввод. Ведите значение снова или отмените /stopTime", ""); 
+      bot->sendMessage(chat_id, "Не корректный ввод. Ведите значение снова или отмените /stopTime", "");
     }
     return true;
 
   } else if (command.startsWith("/stopTime")) {
-       control.scenario.useSetting = false;
+    control.scenario.useSetting = false;
 
-       if (!control.scenario.useSetting ) {
-          bot->sendMessage(chat_id, "Отключено", "");
-          isSaveControl = true;
-       } else {
-         bot->sendMessage(chat_id, "Ошибка! Повторите ввод.", "");
-       }
+    if (!control.scenario.useSetting) {
+      bot->sendMessage(chat_id, "Отключено", "");
+      isSaveControl = true;
+    } else {
+      bot->sendMessage(chat_id, "Ошибка! Повторите ввод.", "");
+    }
 
-       return true;
+    return true;
   }
   //===============
 
@@ -1980,18 +1978,18 @@ bool handleTelegramCommand(String chat_id, String command) {
     String res = sendHelp();
     bot->sendMessage(chat_id, res, "");
     return true;
-    
+
   } else if (command.startsWith("/resetFull")) {
     initializeControl();
     bot->sendMessage(chat_id, "Все параметры сброшены по умолчанию", "");
     isSaveControl = true;
     return true;
-    
+
   } else if (command.startsWith("/debug")) {
     String outStr = debugInfo();
     bot->sendMessage(chat_id, outStr, "");
     return true;
-    
+
   } else if (command.startsWith("/log")) {
     String outStr = "Log:\n";
     outStr += getLog();
@@ -2202,7 +2200,7 @@ void tikTak() {
 
   //  if (analogRead(35) < 2000) {
   //   enterSleepMode();
-  // } 
+  // }
 
   controlTask();
 
