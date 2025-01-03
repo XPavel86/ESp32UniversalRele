@@ -14,7 +14,7 @@
 //// Объявляем объект дисплея с заданными размерами
 //Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 //===============================
-int buttonPin = 35;  // Пин для кнопки
+int buttonPin = 33;  // Пин для кнопки // для esp_sleep_enable_ext0_wakeup(buttonPinGPIO, 1);  должен быть только цифровой
 //int ledPin = 17;     // или D2 на wifi led Пин для светодиода
 
 //====================================
@@ -87,12 +87,16 @@ void processButtonPress(void (*onSinglePress)(), void (*onDoublePress)(), void (
 void enterSleepMode() {
     Serial.println("Entering sleep mode...");
  // Преобразуем тип int в gpio_num_t
-    gpio_num_t buttonPinGPIO = static_cast<gpio_num_t>(buttonPin);
+    gpio_num_t buttonPinGPIO = static_cast<gpio_num_t>(33);
     
     // Устанавливаем пробуждение по внешнему событию на пине buttonPinGPIO
-    esp_sleep_enable_ext0_wakeup(buttonPinGPIO, 1);
-    esp_deep_sleep_start();
-    //esp_light_sleep_start();
-}
+    esp_sleep_enable_ext0_wakeup(buttonPinGPIO, 1); 
 
+    WiFi.setSleep(true);
+    delay(300);
+
+    esp_deep_sleep_start();
+
+   // esp_light_sleep_start();
+}
 //====================================================//
