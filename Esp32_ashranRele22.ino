@@ -13,7 +13,10 @@ void setup() {
 
   //====================================
   //pinMode(ledPin, OUTPUT);
-  pinMode(buttonPin, INPUT_PULLDOWN);
+  pinMode(buttonPin, INPUT_PULLDOWN); // INPUT_PULLDOWN  INPUT_PULLUP// нужно подтянуть к плючсу так как прерывание сравботает при п
+
+  pinMode(tempPin, INPUT);
+
 
  unsigned long buttonPressStartTime = 0;
 
@@ -29,34 +32,37 @@ void setup() {
     return;
   }
 
-  // Проверяем состояние кнопки и начинаем отсчет времени, если кнопка нажата
-  if (digitalRead(buttonPin) == HIGH) {
-    buttonPressed = true;
-    buttonPressStartTime = millis();
-  }
-
-  // Цикл ожидания для проверки длительности нажатия
-  while (buttonPressed) {
-    unsigned long currentTime = millis();
-
-    // Если кнопка удерживается более 5 секунд
-    if (currentTime - buttonPressStartTime > 5000) {
-      Serial.println("Button was pressed for more than 5 seconds. Formatting SPIFFS.");
-      SPIFFS.format();
-
-      delay(1000);
-      ESP.restart();
-      //buttonPressed = false; // Сброс состояния кнопки после форматирования
-    }
-    // Если кнопка отпущена до истечения 5 секунд
-    else if (digitalRead(buttonPin) == LOW) {
-      buttonPressed = false;  // Сброс состояния кнопки
-    }
-    delay(100);  
-  }
-  delay(500);
+// Проверяем состояние кнопки и начинаем отсчет времени, если кнопка нажата
+  // if (digitalRead(buttonPin) == HIGH) {
+  //   buttonPressed = true;
+  //   buttonPressStartTime = millis();
+  // } else {
+  //    buttonPressed = false;
+  //   }
+//
+//  // Цикл ожидания для проверки длительности нажатия // пересекает с пинов выхода из сна
+//  while (buttonPressed) {
+//    unsigned long currentTime = millis();
+//
+//    // Если кнопка удерживается более 5 секунд
+//    if (currentTime - buttonPressStartTime > 5000) {
+//      Serial.println("Button was pressed for more than 5 seconds. Formatting SPIFFS.");
+//      SPIFFS.format();
+//
+//      delay(1000);
+//      ESP.restart();
+//      //buttonPressed = false; // Сброс состояния кнопки после форматирования
+//    }
+//    // Если кнопка отпущена до истечения 5 секунд
+//    else if (digitalRead(buttonPin) == LOW) {
+//      buttonPressed = false;  // Сброс состояния кнопки
+//    }
+//    delay(100);  
+//  }
+//  delay(500);
   
 //===================================
+WiFi.persistent(true);
 
 loadControlFromSPIFFS();
 setupControl();
@@ -117,7 +123,7 @@ setupControl();
   //=================================
 
   // Прерывание на кнопке
-  attachInterrupt(digitalPinToInterrupt(buttonPin), handleButtonPress, HIGH);
+  //attachInterrupt(digitalPinToInterrupt(buttonPin), handleButtonPress, LOW);  //RISING, FALLING, или CHANGE). 
 } // END SETUP
 
 //=======================
@@ -127,7 +133,6 @@ void handleSinglePress() {
 }
 
 void handleDoublePress() {
-
   if (WiFi.getMode() == WIFI_OFF) {
 
     settings.isAP = true;
@@ -167,7 +172,7 @@ void handleLongPress5s() {
 
   delay(1000);
 
-  enterSleepMode();
+  //enterSleepMode();
 }
 
 //========================
@@ -224,11 +229,15 @@ void loop() {
     scannedNetworks = scanNetworks(false);
   }
   //============ ОБРАБОТКА ДЕВАЙСОВ ============
-
-  if (buttonPressed) {
-    buttonPressed = false;  // Сброс флага прерывания
-    processButtonPress(handleSinglePress, handleDoublePress, handleLongPress5s);
-  }
+  if (digitalRead(buttonPin) == LOW) {
+    Serial.print("buttonPin ");
+    Serial.println(digitalRead(buttonPin));
+    delay(300);
+    buttonPressed = false; 
+    enterSleepMode();
+    // Сброс флага прерывания
+    //processButtonPress(handleSinglePress, handleDoublePress, handleLongPress5s);
+  } 
   //===========================
   
   if (!isScan && tiktak1 > 120) {

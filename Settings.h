@@ -12,8 +12,11 @@
 #include <vector>
 #include <Ticker.h>
 
+#include <esp_sleep.h>
+
 #include "func.h"
 #include "Control.h"
+
 //================================
 Ticker ticker;
 //=================================
@@ -60,6 +63,7 @@ struct TelegramSettings {
   String botId;
   std::vector<TelegramUserID> telegramUsers;  // Использование vector для динамического массива
   String lastMessage;
+  bool isPush;
 };
 
 struct NetworkSetting {
@@ -189,7 +193,7 @@ void sendPendingMessages() {
       //String sendStr = "[" + logList[index].timestamp + "] - " + logList[index].message;
       String sendStr = logList[index].message;
       for (const auto& user : settings.telegramSettings.telegramUsers) {
-        if (!user.id.isEmpty() && user.reading && settings.telegramSettings.isTelegramOn) {
+        if (!user.id.isEmpty() && user.reading && settings.telegramSettings.isTelegramOn && settings.telegramSettings.isPush) {
           messageSent = bot->sendMessage(user.id, sendStr, "");
         }
       }
@@ -253,7 +257,8 @@ String getSettingsJson() {
   JsonObject telegramSettingsObj = root.createNestedObject("telegramSettings");
   telegramSettingsObj["isTelegramOn"] = settings.telegramSettings.isTelegramOn;
   telegramSettingsObj["botId"] = settings.telegramSettings.botId;
-  telegramSettingsObj["lastMessage"] = settings.telegramSettings.lastMessage;
+  telegramSettingsObj["lastMessage"] = settings.telegramSettings.lastMessage; 
+  telegramSettingsObj["isPush"] = settings.telegramSettings.isPush;
 
   // Добавляем информацию о пользователях Telegram
   JsonArray usersArray = telegramSettingsObj.createNestedArray("telegramUsers");
@@ -340,8 +345,9 @@ bool saveSettings(bool wdt = false) {
   JsonObject telegramSettingsObj = doc.createNestedObject("telegramSettings");
   telegramSettingsObj["isTelegramOn"] = settings.telegramSettings.isTelegramOn;
   telegramSettingsObj["botId"] = settings.telegramSettings.botId;
-  telegramSettingsObj["lastMessage"] = settings.telegramSettings.lastMessage;
-
+  telegramSettingsObj["lastMessage"] = settings.telegramSettings.lastMessage; 
+  telegramSettingsObj["lastMessage"] = settings.telegramSettings.isPush;
+  
   // Добавляем информацию о пользователях Telegram
   JsonArray usersArray = telegramSettingsObj.createNestedArray("telegramUsers");
   for (const auto& user : settings.telegramSettings.telegramUsers) {
@@ -437,6 +443,7 @@ bool loadSettings(bool wdt = false) {
   settings.telegramSettings.botId = telegramSettingsObj["botId"].as<String>();
   //settings.telegramSettings.lastMessage = telegramSettingsObj["lastMessage"].as<String>();
   settings.telegramSettings.lastMessage = telegramSettingsObj["lastMessage"].isNull() ? "" : telegramSettingsObj["lastMessage"].as<String>();
+  settings.telegramSettings.isPush = telegramSettingsObj["isPush"].as<bool>();
 
   settings.telegramSettings.telegramUsers.clear();
   JsonArray usersArray = telegramSettingsObj["telegramUsers"];
@@ -601,6 +608,48 @@ void getNowDateTime() {
   }
 }
 
+//================================
+void setTimeManually(const String& date, const String& time) {
+  // Проверяем длину строк
+  if (date.length() != 10 || time.length() != 5) {
+    Serial.println("Error: Invalid date or time format. Expected 'YYYY-MM-DD' and 'HH:MM'.");
+    return;
+  }
+
+  // Разбор строки с датой
+  int year = date.substring(0, 4).toInt();
+  int month = date.substring(5, 7).toInt();
+  int day = date.substring(8, 10).toInt();
+
+  // Разбор строки с временем
+  int hour = time.substring(0, 2).toInt();
+  int minute = time.substring(3, 5).toInt();
+
+  // Проверяем корректность данных
+  if (year < 2000 || year > 9100 || month < 1 || month > 12 || day < 1 || day > 31 ||
+      hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    Serial.println("Error: Invalid date or time values.");
+    return;
+  }
+
+  // Создаем структуру tm для времени
+  struct tm newTime = {};
+  newTime.tm_year = year - 1900;  // В библиотеке tm год отсчитывается с 1900
+  newTime.tm_mon = month - 1;     // Месяцы отсчитываются с 0
+  newTime.tm_mday = day;
+  newTime.tm_hour = hour;
+  newTime.tm_min = minute;
+  newTime.tm_sec = 0;  // Секунды можно установить в 0
+
+  // Устанавливаем время в RTC
+  time_t newEpoch = mktime(&newTime);  // Конвертируем структуру tm в time_t
+  rtc.setTime(newEpoch);  // Устанавливаем время в RTC
+
+  // Считываем и обновляем локальное время
+  getTimeFromRTC();
+
+  Serial.println("Manual time set in RTC: " + rtc.getTime("%A, %d %B %Y %H:%M:%S"));
+}
 //================================
 void updateBotId() {
 
@@ -1167,26 +1216,36 @@ void serverProcessingControl() {
     }
   });
 
-  server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
+
+server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
     String json = "{";
     json += "\"relays\":[";
+
+    bool firstRelay = true;
     for (const auto& relay : control.relays) {
-      json += "{";
-      json += "\"description\":\"" + relay.description + "\",";
-      json += "\"state\":" + String(digitalRead(relay.pin) ? "true" : "false") + ",";
-      json += "\"mode\":\"" + String(relay.manualMode ? "Manual" : "Auto") + "\"";
-      json += "},";
+        if (!firstRelay) {
+            json += ",";
+        }
+        firstRelay = false;
+
+        json += "{";
+        json += "\"description\":\"" + relay.description + "\",";
+        json += "\"state\":" + String(digitalRead(relay.pin) ? "true" : "false") + ",";
+        json += "\"mode\":\"" + String(relay.manualMode ? "Manual" : "Auto") + "\"";
+        json += "}";
     }
-    if (!control.relays.empty()) {
-      json.remove(json.length() - 1);  // Удалить последнюю запятую
-    }
+
     json += "],";
-    json += "\"temp\":" + String(currentTemp);
+    json += "\"temp\":" + String(currentTemp) + ",";  // Корректная запятая
+    json += "\"currentDateTime\":\"" + formatDateTime(getCurrentTimeFromRTC()) + "\"";  // Строка с кавычками
     json += "}";
+
     request->send(200, "application/json", json);
 
-    //Serial.println(json);
-  });
+    // Serial.println(json);  // Для диагностики
+});
+
+
 
   //========= настройки control
   server.on("/getRelaySettings", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -1207,8 +1266,8 @@ void serverProcessingControl() {
           firstRelay = false;
         }
 
-        Serial.print("load relay.statePin: ");
-        Serial.println(relay.modePin);  // Логируем значение modePin
+        // Serial.print("load relay.statePin: ");
+        // Serial.println(relay.modePin);  // Логируем значение modePin
 
         // Формируем объект для текущего реле
         response += "{";
@@ -1350,6 +1409,34 @@ void serverProcessing() {
   server.on("/", HTTP_GET, handleRoot);
 
   //=======================
+
+ // Обработчик POST-запроса для утановки даты и времени
+server.on("/setDateTime", HTTP_POST, [](AsyncWebServerRequest* request) {
+  printRequestParameters(request);
+  
+    if (request->hasParam("date", true) && request->hasParam("time", true)) {
+        // Получаем параметры из тела запроса (через FormData)
+        String dateS = request->getParam("date", true)->value();
+        String timeS = request->getParam("time", true)->value();
+
+        // Проверяем, что дата и время присутствуют
+        if (dateS.isEmpty() || timeS.isEmpty()) {
+            request->send(400, "application/json", "{\"message\":\"Date and time are required\"}");
+            return;
+        }
+
+        // Устанавливаем дату и время вручную
+        setTimeManually(dateS, timeS);
+
+        // Возвращаем успешный ответ
+        request->send(200, "application/json", "{\"message\":\"Date and time successfully updated\"}");
+        Serial.println("Date and time updated to: " + dateS + " " + timeS);
+    } else {
+        // Если не найдены параметры date или time
+        request->send(400, "application/json", "{\"message\":\"Date and time are required\"}");
+    }
+});
+
 
   // Обработчик для получения списка файлов
   server.on("/fileList", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -1762,6 +1849,23 @@ bool handleTelegramCommand(String chat_id, String command) {
       return false;
     }
   }
+   // Проверка команды ""
+  else if (command == "/pushOff") {
+    settings.telegramSettings.isPush = false;
+    isSaveControl = true;
+    String sOut = "Уведомления отключены";
+    bot->sendMessage(chat_id, sOut, "");
+    return true;
+  }
+
+   else if (command == "/pushOn") {
+    settings.telegramSettings.isPush = true;
+    isSaveControl = true;
+    String sOut = "Уведомления включены";
+    bot->sendMessage(chat_id, sOut, "");
+    return true;
+  }
+  
   // Проверка команды "/statusControl"
   else if (command == "/status") {
     String sOut = sendStatus();
@@ -1873,24 +1977,22 @@ bool handleTelegramCommand(String chat_id, String command) {
   //===============
 
   else if (command.startsWith("/help")) {
-    bool value = command.substring(5).equalsIgnoreCase("true");  // Извлечь значение
     String res = sendHelp();
     bot->sendMessage(chat_id, res, "");
     return true;
+    
   } else if (command.startsWith("/resetFull")) {
-    bool value = command.substring(10).equalsIgnoreCase("true");  // Извлечь значение
     initializeControl();
     bot->sendMessage(chat_id, "Все параметры сброшены по умолчанию", "");
     isSaveControl = true;
     return true;
+    
   } else if (command.startsWith("/debug")) {
-    bool value = command.substring(6).equalsIgnoreCase("true");  // Извлечь значение
     String outStr = debugInfo();
     bot->sendMessage(chat_id, outStr, "");
-
     return true;
+    
   } else if (command.startsWith("/log")) {
-    bool value = command.substring(4).equalsIgnoreCase("true");  // Извлечь значение
     String outStr = "Log:\n";
     outStr += getLog();
     bot->sendMessage(chat_id, outStr, "");
@@ -1903,7 +2005,6 @@ bool handleTelegramCommand(String chat_id, String command) {
     return false;
   }
 }
-
 
 //=================================
 
@@ -2093,11 +2194,15 @@ void handleNewMessages(int numNewMessages) {
 }
 //==================
 
+
 // Задача тиктака
 
 void tikTak() {
 
-  //if (!isUpdate) checkMemory();
+
+  //  if (analogRead(35) < 2000) {
+  //   enterSleepMode();
+  // } 
 
   controlTask();
 

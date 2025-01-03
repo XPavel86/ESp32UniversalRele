@@ -4,7 +4,7 @@
 //#include <HCSR04.h>
 #include <WiFi.h>
 #include <time.h>
-
+#include <PID_v1.h>
 #include <ctype.h>
 
 #include <AsyncDelay.h>
@@ -12,12 +12,29 @@
 
 ESP32Time rtc;
 
+// PID переменные
+double setpoint = 25.0;   // Целевая температура, °C
+double input;             // Текущая температура
+double output;            // Выход PID-регулятора
+
+// PID параметры (проверьте для вашего приложения)
+double Kp = 2.0, Ki = 5.0, Kd = 1.0;
+
+// // для теплого пола
+// double Kp = 10.0;  // Пропорциональная составляющая: увеличивает реакцию на ошибку
+// double Ki = 0.1;   // Интегральная составляющая: медленно корректирует систематическую ошибку
+// double Kd = 2.0;   // Дифференциальная составляющая: уменьшает резкие изменения
+
+
+// Создание PID-регулятора
+PID myPID(&input, &output, &setpoint, Kp, Ki, Kd, DIRECT);
+
 // датчик температуры //
 const int tempPin = 32;
 
 #define B 3950              // B-коэффициент
-#define SERIAL_R 10000      // сопротивление последовательного резистора, 10 кОм
-#define THERMISTOR_R 22000  // номинальное сопротивления термистора, 10 кОм
+#define SERIAL_R 22230 //22230 10000  10230    // сопротивление последовательного резистора, 10 кОм
+#define THERMISTOR_R 10000  // номинальное сопротивления термистора, 10 кОм
 #define NOMINAL_T 25        // номинальная температура (при которой TR = 10 кОм)  #define B 3950 // B-коэффициент \
                             // номинальная температура (при которой TR = 10 кОм)
 //==============================
@@ -83,7 +100,7 @@ void initializeControl() {
 
 //==================================
 // температура при которой включается скваженный насос, если меньше насос не работает. Будет по другому когда будет компрессор
-float currentTemp = 0.5;
+float currentTemp = 0.5; 
 String text = "";
 
 //
@@ -259,6 +276,9 @@ std::pair<String, String> splitDateTime(const String& dateTime) {
 
 void setupControl() {
   // Кнопки датчики //
+  // Инициализация PID
+  myPID.SetMode(AUTOMATIC);
+  myPID.SetOutputLimits(0, 255); // Выход PID-регулятора в диапазоне 0-255
 
   //pinMode(sensButtonPin_1, INPUT_PULLDOWN);
 
@@ -304,40 +324,9 @@ void manualWork(String arg) {
 
 //=====================================================
 
-bool startTimer1 = false;
-int timer1 = 0;
 
-// Состояние реле
-bool relay1State = false;
 
-void toggleRelays() {
-
-  int relay1Pin = control.scenario.pinRelays;
-  int relay2Pin = control.scenario.pinRelays2;
-
-  if (relay1State) {
-    delay(100);
-    // Если реле1 включено, выключаем его и включаем реле2
-    digitalWrite(relay1Pin, LOW);
-    digitalWrite(relay2Pin, HIGH);
-    relay1State = false;
-    Serial.println("Relay1 OFF, Relay2 ON");
-    
-  } else {
-    delay(100);
-    // Если реле2 включено, выключаем его и включаем реле1
-    digitalWrite(relay2Pin, LOW);
-    digitalWrite(relay1Pin, HIGH);
-    relay1State = true;
-    Serial.println("Relay2 OFF, Relay1 ON");
-  }
-}
-
-// struct Relay {
-//     int pin;
-//     bool state; // Состояние реле: true - включено, false - выключено
-// };
-
+// универсальный тогл
 // void toggleRelays(Relay relays[], int relayCount, unsigned long interval) {
 //     static int currentRelayIndex = 0;         // Текущий индекс реле
 //     static unsigned long lastToggleTime = 0; // Время последнего переключения
@@ -372,41 +361,6 @@ void toggleRelays() {
 // }
 
 
-void scenarioRele(bool start) {
-  int relayInterval = control.scenario.timeInterval;
-  int relay1Pin = control.scenario.pinRelays;
-  int relay2Pin = control.scenario.pinRelays2;
-
-  bool manualMode1;
-  bool manualMode2;
-
-  for (auto& r : control.relays) {
-    if (r.pin == relay1Pin) {
-      manualMode1 = r.manualMode;
-    }
-
-    if (r.pin == relay2Pin) {
-      manualMode2 = r.manualMode;
-    }
-  }
-
-  if (!(manualMode1 || manualMode2)) {
-
-    if (start) {
-      startTimer1 = true;
-
-      if (timer1 >= relayInterval) {
-        delay(0);
-        toggleRelays();
-        timer1 = 0;
-      }
-    } else {
-      startTimer1 = false;
-      digitalWrite(relay1Pin, LOW);
-      digitalWrite(relay2Pin, LOW);
-    }
-  }
-}
 
 //=====================================================//
 
@@ -438,27 +392,155 @@ int shiftWeekDay(int currentDay) {
   }
 }
 
-time_t convertToTimeT(const String& date, const String& time) {
+time_t convertToTimeT(const String& date) {
   tm t = {};
   sscanf(date.c_str(), "%4d-%2d-%2d", &t.tm_year, &t.tm_mon, &t.tm_mday);
-  sscanf(time.c_str(), "%2d:%2d", &t.tm_hour, &t.tm_min);
 
   t.tm_year -= 1900;  // Годы с 1900
   t.tm_mon -= 1;      // Месяцы от 0 до 11
 
+  // Сбрасываем время на 00:00:00
+  t.tm_hour = 0;
+  t.tm_min = 0;
+  t.tm_sec = 0;
+
   return mktime(&t);
 }
+
 
 time_t getCurrentTimeFromRTC() {
   time_t now = rtc.getEpoch();  // Получаем текущее время из RTC
   return now;                   // Возвращаем как time_t
 }
 
+String formatDateTime(time_t rawTime) {
+    struct tm timeInfo;
+    localtime_r(&rawTime, &timeInfo); // Преобразуем time_t в структуру tm
+
+    // Форматируем строку: DD.MM.YYYY HH:MM
+    char buffer[20];
+    snprintf(buffer, sizeof(buffer), "%02d.%02d.%04d %02d:%02d",
+             timeInfo.tm_mday,
+             timeInfo.tm_mon + 1,  // Месяц в tm начинается с 0
+             timeInfo.tm_year + 1900, // Год в tm начинается с 1900
+             timeInfo.tm_hour,
+             timeInfo.tm_min);
+
+    return String(buffer);
+}
+
+time_t convertOnlyDate(time_t rawTime) {
+    struct tm timeInfo;
+    localtime_r(&rawTime, &timeInfo); // Преобразуем time_t в структуру tm
+
+    // Сбрасываем время на 00:00:00
+    timeInfo.tm_hour = 0;
+    timeInfo.tm_min = 0;
+    timeInfo.tm_sec = 0;
+
+    // Преобразуем обратно в time_t
+    return mktime(&timeInfo);
+}
+
+//=================================================
+
+static unsigned long lastUpdate = 0;
+
+String msg[20] = {"", "", "", "", "", ""};
+String lastMsg[20] = {"", "", "", "", "", ""};
+
+bool startTimer1 = false;
+int timer1 = 0;
+
+// Состояние реле
+bool relay1State = false;
+
+void toggleRelays() {
+  int relay1Pin = control.scenario.pinRelays;
+  int relay2Pin = control.scenario.pinRelays2;
+
+  if (relay1State) {
+
+    msg[5] = "Relay2 On, Relay1 Off";
+    if (msg[5] != lastMsg[5]) {
+      Serial.println(msg[5]);
+      lastMsg[5] = msg[5];
+
+    digitalWrite(relay1Pin, LOW);
+    digitalWrite(relay2Pin, HIGH);
+    relay1State = false;
+    }
+  } else {
+    
+    msg[5] = "Relay2 Off, Relay1 On";
+    if (msg[5] != lastMsg[5]) {
+      Serial.println(msg[5]);
+      lastMsg[5] = msg[5];
+
+      digitalWrite(relay2Pin, LOW);
+      digitalWrite(relay1Pin, HIGH);
+    relay1State = true;
+    }
+  }
+}
+
+void scenarioRele(bool start) {
+  int relayInterval = control.scenario.timeInterval;
+  int relay1Pin = control.scenario.pinRelays;
+  int relay2Pin = control.scenario.pinRelays2;
+
+  bool manualMode1 = false;
+  bool manualMode2 = false;
+
+  // Проверяем ручной режим
+  for (auto& r : control.relays) {
+    if (r.pin == relay1Pin) {
+      manualMode1 = r.manualMode;
+    }
+    if (r.pin == relay2Pin) {
+      manualMode2 = r.manualMode;
+    }
+  }
+
+  if (!(manualMode1 || manualMode2)) {
+    if (start) {
+      // Запускаем таймер
+      startTimer1 = true;
+
+      if (timer1 == 0) {
+        toggleRelays();
+        timer1 = 1;
+      }
+
+      if (timer1 >= relayInterval) {
+        timer1 = 0; // Сбрасываем таймер после переключения
+      }
+    } else {
+      // Останавливаем сценарий и отключаем оба реле
+      startTimer1 = false;
+      digitalWrite(relay1Pin, LOW);
+      digitalWrite(relay2Pin, LOW);
+
+      msg[5] = "Relays OFF";
+      if (msg[5] != lastMsg[5]) {
+        Serial.println(msg[5]);
+        lastMsg[5] = msg[5];
+      }
+    }
+  }
+}
+
 //=================================================
 
 void mainScenario(void (*callFunc)(String)) {
+  
+  if (millis() - lastUpdate >= 200) { //delay(200);
+    lastUpdate = millis();
 
-  delay(200);
+  currentTemp = getTemp();
+  setpoint = control.scenario.temperature;
+  input = currentTemp;
+  myPID.Compute();
 
   if (Serial.available() > 0) {
     String arg = Serial.readString();
@@ -468,76 +550,120 @@ void mainScenario(void (*callFunc)(String)) {
     }
   }
 
-  // Проверяем, включено ли использование настройки
   if (control.scenario.useSetting) {
 
-    // Преобразуем строки даты и времени в `time_t`
-    time_t startDateTime = convertToTimeT(control.scenario.startDate, control.scenario.startTime);
-    time_t endDateTime = convertToTimeT(control.scenario.endDate, control.scenario.endTime);
-    time_t currentDateTime = getCurrentTimeFromRTC();  // Текущее время
+    msg[0] = "Включение сценария";
+    if (msg[0] != lastMsg[0]) {
+      Serial.println(msg[0]);
+      lastMsg[0] = msg[0];
+    }
+
+    time_t startDate = convertToTimeT(control.scenario.startDate);
+    time_t endDate = convertToTimeT(control.scenario.endDate);
+    time_t currentDateTime = getCurrentTimeFromRTC();
+    time_t currentDate = convertOnlyDate(currentDateTime);
+
     struct tm currentTime;
-    localtime_r(&currentDateTime, &currentTime);  // Получаем текущий день недели
+    localtime_r(&currentDateTime, &currentTime);
 
-    // Проверяем, попадает ли текущая дата/время в заданный диапазон
-    if (currentDateTime >= startDateTime && currentDateTime <= endDateTime) {
+    if (currentDate >= startDate && currentDate <= endDate) {
+      msg[1] = "Текущая дата в установленном диапазоне";
+      if (msg[1] != lastMsg[1]) {
+        Serial.println(msg[1]);
+        lastMsg[1] = msg[1];
+      }
 
-      // Проверяем, включен ли текущий день в массиве недели
       if (control.scenario.week[shiftWeekDay(currentTime.tm_wday)]) {
+        msg[2] = "Текущий день включен в массиве недели";
+        if (msg[2] != lastMsg[2]) {
+          Serial.println(msg[2]);
+          lastMsg[2] = msg[2];
+        }
 
-        struct tm* currentTime = localtime(&currentDateTime);  // Преобразуем в структуру tm
-        int currentHour = currentTime->tm_hour;                // Часы
-        int currentMinute = currentTime->tm_min;               // Минуты
+        int currentMinutes = currentTime.tm_hour * 60 + currentTime.tm_min;
+        int startMinutes = control.scenario.startTime.substring(0, 2).toInt() * 60 +
+                           control.scenario.startTime.substring(3, 5).toInt();
+        int endMinutes = control.scenario.endTime.substring(0, 2).toInt() * 60 +
+                         control.scenario.endTime.substring(3, 5).toInt();
 
-        // Время начала и окончания
-        int startHour = control.scenario.startTime.substring(0, 2).toInt();
-        int startMinute = control.scenario.startTime.substring(3, 5).toInt();
-        int endHour = control.scenario.endTime.substring(0, 2).toInt();
-        int endMinute = control.scenario.endTime.substring(3, 5).toInt();
-
-        // Преобразуем время начала и окончания в количество минут с начала дня
-        int startMinutes = startHour * 60 + startMinute;
-        int endMinutes = endHour * 60 + endMinute;
-        int currentMinutes = currentHour * 60 + currentMinute;
-
-        // Сравниваем время в минутах
         if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+          msg[3] = "Текущие минуты больше установленных";
+          if (msg[3] != lastMsg[3]) {
+            Serial.println(msg[3]);
+            lastMsg[3] = msg[3];
+          }
 
-          // Если установлена галочка температуры
           if (control.scenario.temperatureCheckbox) {
-            // Если текущая температура меньше заданной, включаем реле
-            if (currentTemp < control.scenario.temperature) {
-              //scenarioRele(true, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
+            if (output > control.scenario.temperature) {
+
+              msg[4] = "Текущая температура меньше установленной";
+              if (msg[4] != lastMsg[4]) {
+                Serial.println(msg[4]);
+                lastMsg[4] = msg[4];
+              }
               scenarioRele(true);
+              
             } else {
-              //scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
+              msg[4] = "Текущая температура больше установленной";
+              if (msg[4] != lastMsg[4]) {
+                Serial.println(msg[4]);
+                lastMsg[4] = msg[4];
+              }
               scenarioRele(false);
+
             }
           } else {
-            //scenarioRele(true, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
-            scenarioRele(true);
+            msg[8] = "Слежение за температурой отключено";
+              if (msg[8] != lastMsg[8]) {
+                Serial.println(msg[8]);
+                lastMsg[8] = msg[8];
+              }
+              scenarioRele(true);
+
           }
         } else {
-          // scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
-          scenarioRele(false);
+          msg[3] = "Текущие минуты меньше установленных";
+          if (msg[3] != lastMsg[3]) {
+            Serial.println(msg[3]);
+            lastMsg[3] = msg[3];
+          }
+           scenarioRele(false);
+
         }
       } else {
-        // scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval ); // Если текущий день недели не активен
-        scenarioRele(false);
+        msg[2] = "Текущий день вне массива недели";
+        if (msg[2] != lastMsg[2]) {
+          Serial.println(msg[2]);
+          lastMsg[2] = msg[2];
+        }
+           scenarioRele(false);
+
       }
     } else {
-      //scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval ); // Если текущее время не в пределах начала и конца даты
+      msg[1] = "Текущая дата вне установленного диапазона";
+      if (msg[1] != lastMsg[1]) {
+        Serial.println(msg[1]);
+        lastMsg[1] = msg[1];
+      }
       scenarioRele(false);
+      
     }
   } else {
-    // Если настройка отключена
-    //scenarioRele(false, control.scenario.pinRelays , control.scenario.pinRelays2, control.scenario.timeInterval );
-    scenarioRele(false);
-  }
+    msg[0] = "Выключение сценария";
+    if (msg[0] != lastMsg[0]) {
+      Serial.println(msg[0]);
+      lastMsg[0] = msg[0];
 
-  printRelayStates(callFunc);  // передача состояний
+      }
+      scenarioRele(false);
+
+    }
+    
+  printRelayStates(callFunc);
+
+  } // millis end
 }
-
-////====================================================
+//====================================================
 
 void controlTask() {
 
@@ -694,25 +820,26 @@ String sendStatus() {
     relayIndex++;
   }
 
+  helpText += "Дата и время на устройстве: " + formatDateTime(getCurrentTimeFromRTC()) + "\n";
   helpText += "Температура: " + String(currentTemp) + " °С\n";
   helpText += "\n";
 
   String tmpMsg = convertDateFormat(control.scenario.startDate) + " " + control.scenario.startTime + " по " + convertDateFormat(control.scenario.endDate) + " " + control.scenario.endTime + "\n";
   if (control.scenario.useSetting) {
-    helpText += "Включено. Установленное расписание " + tmpMsg;
+    helpText += "Включено. Установленное расписание: " + tmpMsg;
   } else {
-    helpText += "Отключено. Установленное расписание " + tmpMsg;
+    helpText += "Отключено. Установленное расписание: " + tmpMsg;
   }
 
   helpText += "Установить расписание /setTime\n";
   helpText += "Включить /startTime\n";
-  helpText += "Отменить /stopTime\n";
+  helpText += "Отменить /stopTime\n"; 
 
   helpText += "\n";
 
-
   helpText += "/resetManual - Сбросить в Auto\n";
   helpText += "/status - Статус и управление \n";
+  helpText += "/pushOn /pushOff - Включить/Отключить уведомления\n";
   helpText += "/help - Справка \n\n";
 
   // Добавляем IP-адрес и SSID

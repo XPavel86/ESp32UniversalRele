@@ -6,6 +6,30 @@
 
 <style>
 
+.modal-footer {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .modal-footer button {
+        padding: 10px 20px;
+        background-color: #5aafd5;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .modal-footer button:hover {
+        background-color: #458dbb;
+    }
+
+    .modal-footer button:active {
+        background-color: #366b8f;
+    }
+
 #addRelayModal {
     z-index: 30; /* Поверх первого модального окна */
 }
@@ -768,9 +792,9 @@ select {
 <div class="modal" id="modalWindow" style="display: none;">
     <h2>Настройки реле</h2>
     <form id="relaySettingsForm">
-        <!-- Обрамленный блок с настройками реле -->
+    
         <div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 20px;">
-            <!-- Здесь будет генерироваться содержимое реле -->
+            
         </div>
     </form>
 
@@ -780,16 +804,98 @@ select {
 </div>
 
 
+<!-- Модальное окно для редактирования настроек  с вкладками -->
+
 <div style="display: flex; align-items: center; justify-content: space-between; position: relative;">
     <h1>Kolibri WiFi Manager</h1>
     <div style="display: flex; align-items: center;">
         <!-- Кнопка для открытия меню настроек с отступом слева -->
         <button onclick="showRelaySettings()" style="margin-left: 10px;">⚙️</button>
         <!-- Кнопка информации с отступом слева -->
-        <button onclick="getStatus()" style="margin-left: 5px;">ℹ️</button>
+        <button onclick="getStatus()" style="margin-left: 5px;">ℹ️</button> 
+        
+        <button onclick="getHelp()" style="margin-left: 5px;">❓</button>
     </div>
 </div>
 
+<!-- Модальное окно для Справки -->
+<div class="modal-overlay" id="helpModal" style="display: none;"></div>
+<div class="modal" id="helpModalWindow" style="display: none;">
+    <h2>Справка</h2>
+    <form id="helpForm">
+        <div style="border: 1px solid #ccc; padding: 20px;">
+            <p><strong>ESP32-wroom</strong></p>
+            <p><strong>Используемые порты на выход/вход:</strong></p>
+            <ul>
+                <li>23, 22, 1, 3, 21, 19, 18, 5, 17, 16, 33, 32</li>
+            </ul>
+
+            <p><strong>Только входы:</strong></p>
+            <ul>
+                <li>35, 34, 39, 36</li>
+            </ul>
+
+            <p><strong>Зарезервированы:</strong></p>
+            <ul>
+                <li>PIN 33 - спящий режим при низком уровне</li>
+                <li>PIN 32 - датчик температуры</li>
+            </ul>
+
+            <p><strong>Конфигурация для спящего режима:</strong></p>
+            <pre>
+              		     R1 10K
+                GND o───[===]─────┐
+                                  │
+                                  ├──────o PIN 33            
+            VIN / 3.3v   R2 10K   │
+                    o───[===]─────┘
+            </pre>
+            <p><strong>VIN</strong> (в случае питания через VIN) или соединить <strong>PIN 3.3v</strong> с <strong>PIN 33</strong></p>
+            <p>R1, R2 - делитель напряжения, два одинаковых резистора по 10 кОм</p>
+
+            <hr>
+
+            <p><strong>Конфигурация температурного датчика:</strong></p>
+            <pre>
+                R3 10K      R4 NTC 10K
+     PIN 3.3v o───[===]───┬────[===]──────o GND
+                          │
+                          │
+                          o PIN 32
+            </pre>
+            <p><strong>Примечания:</strong></p>
+            <ul>
+                <li>R3, R4: Можно сконфигурировать в программе.</li>
+                <li>#define SERIAL_R 10000 // сопротивление последовательного резистора, 10 кОм</li>
+                <li>#define THERMISTOR_R 10000 // номинальное сопротивление термистора, 10 кОм</li>
+            </ul>
+        </div>
+    </form>
+    <button type="button" onclick="closeHelp()">Закрыть</button>
+</div>
+
+
+
+<script>
+    // Функция для отображения модального окна
+    function getHelp() {
+        document.getElementById("helpModal").style.display = "block";
+        document.getElementById("helpModalWindow").style.display = "block"; // Показываем само окно
+    }
+
+    // Функция для закрытия модального окна
+    function closeHelp() {
+        document.getElementById("helpModal").style.display = "none";
+        document.getElementById("helpModalWindow").style.display = "none"; // Скрываем окно
+    }
+
+    // Закрытие модального окна при клике на затемнение
+    window.onclick = function(event) {
+        if (event.target == document.getElementById("helpModal")) {
+            closeHelp();
+        }
+    }
+</script>
 
 
   <div id="status"></div>
@@ -910,6 +1016,19 @@ select {
     </div>
 
     <div class="relay-temperature">Температура: <span id="temperature">0°C</span></div>
+    
+   <div class="relay-currentDateTime">
+    Дата и время: <span id="currentDateTime"></span>
+    <button id="setDateTimeButton">Настройка</button>
+</div>
+
+<!-- Скрытый блок для ввода данных -->
+<div id="dateTimeSettings" style="display: none; margin-top: 10px;">
+    <input type="date" id="dateInput" />
+    <input type="time" id="timeInput" />
+    <button id="applyDateTimeButton" onclick="setDateTime()">Установить</button>
+</div>
+
 
     <br>
 
@@ -1036,6 +1155,8 @@ select {
   });
 </script>
 
+
+
   <!-- 
    Элемент для отображения статуса -->
 
@@ -1068,6 +1189,69 @@ select {
    let availablePins;
    let ocupationPins = [];
    
+
+    // Обработчик для кнопки "Настройка"
+    document.getElementById('setDateTimeButton').addEventListener('click', function () {
+        const settingsDiv = document.getElementById('dateTimeSettings');
+        const dateInput = document.getElementById('dateInput');
+        const timeInput = document.getElementById('timeInput');
+
+        // Переключение видимости блока настроек
+        if (settingsDiv.style.display === 'none') {
+            const now = new Date();
+            dateInput.value = now.toISOString().slice(0, 10); // Формат YYYY-MM-DD
+            timeInput.value = now.toTimeString().slice(0, 5); // Формат HH:MM
+
+            settingsDiv.style.display = 'block';
+        } else {
+            settingsDiv.style.display = 'none';
+        }
+    });
+
+    // Обработчик для кнопки "Установить"
+
+function setDateTime() {
+console.log('setDateTime');
+
+	const dateInput = document.getElementById('dateInput').value;
+    const timeInput = document.getElementById('timeInput').value;
+	
+    // Создаем объект FormData
+     let data = new FormData();
+    data.append('date', dateInput);
+    data.append('time', timeInput);
+
+    fetch('/setDateTime', {
+        method: 'POST',
+        body: data
+    })
+    .then(response => response.text())
+    .then(text => {
+         // Обновляем состояние после отправки команды
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+   
+   //=================================
+   
+   function setCurrentDateForInputDate() {
+    // Получаем текущую дату и время
+    const currentDate = new Date();
+
+    // Форматируем текущую дату в формате YYYY-MM-DD для поля типа date
+    const dateStr = currentDate.toISOString().split('T')[0];  // "YYYY-MM-DD"
+    
+    // Форматируем текущее время в формате HH:MM для поля типа time
+    const timeStr = currentDate.toTimeString().split(' ')[0].slice(0, 5);  // "HH:MM"
+    
+    // Заполняем поля формы значениями текущей даты и времени
+    document.getElementById('dateInput').value = dateStr;
+    document.getElementById('timeInput').value = timeStr;
+    
+	}
+   
+   
    function setCurrentDate() {
     // Получаем текущую дату и время
     const currentDate = new Date();
@@ -1083,7 +1267,11 @@ select {
     document.getElementById('startTime').value = timeStr;
     document.getElementById('endDate').value = dateStr;
     document.getElementById('endTime').value = timeStr;
-}
+    
+    //document.getElementById('dateInput').value = dateStr;
+    //document.getElementById('timeInput').value = timeStr;
+    
+	}
     
     
     function populatePinSelect(selectId) {
@@ -1248,174 +1436,6 @@ function saveDataScenario(event) {
         });
 }
 
-        
-  //  function saveDataScenario(event) {
-//     event.preventDefault(); // Предотвращаем стандартную отправку формы addRelayForm
-//     
-//     // Получаем форму
-//     const form = document.getElementById('formScenario');
-//     
-//     // Выводим все элементы формы
-//     console.log(form.elements);
-//     
-//     // Проверяем, что form существует
-//     if (!(form instanceof HTMLFormElement)) {
-//         console.error('Элемент не является формой!');
-//         return;
-//     }
-//     
-//     // Создаем объект FormData из формы
-//     const formData = new FormData(form);
-//     
-//     // Собираем значения для дней недели
-//     const week = {
-//         monday: document.getElementById('monday').checked,
-//         tuesday: document.getElementById('tuesday').checked,
-//         wednesday: document.getElementById('wednesday').checked,
-//         thursday: document.getElementById('thursday').checked,
-//         friday: document.getElementById('friday').checked,
-//         saturday: document.getElementById('saturday').checked,
-//         sunday: document.getElementById('sunday').checked
-//     };
-// 
-//     // Добавляем объект week в formData
-//     formData.set('week', JSON.stringify(week));
-//     
-//     // Автоматически добавляем значения для чекбоксов, если они не установлены
-//     const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-//     checkboxes.forEach(checkbox => {
-//         // Если чекбокс был выбран, его значение будет 'on', так что мы заменим его на 'true'
-//         if (checkbox.checked) {
-//             formData.set(checkbox.name, 'true');  // Заменяем 'on' на 'true'
-//         } else {
-//             formData.set(checkbox.name, 'false'); // Если не выбран, добавляем 'false'
-//         }
-//     });
-//     
-//     // Обработка выбора pinRelays
-//     const select = document.getElementById('pinRelays');
-//      const select2 = document.getElementById('pinRelays2');
-//     console.log('pinRelays', select.value);  // Выведет выбранное значение
-// 
-//     if (select.value) {
-//         formData.set('pinRelays', select.value);  // Используем set, чтобы не дублировать
-//     }
-//     
-//     if (select2.value) {
-//         formData.set('pinRelays2', select2.value);  // Используем set, чтобы не дублировать
-//     }
-//     
-//     // Пример: выводим данные в консоль
-//     for (const [key, value] of formData.entries()) {
-//         console.log(`${key}: ${value}`);
-//     }
-// 
-//     // Отправляем данные на сервер
-//     fetch('/formScenario', {
-//         method: 'POST',
-//         body: formData,
-//     })
-//     .then(response => response.json())
-//     .then(data => {
-//         console.log('Данные успешно отправлены на сервер:', data);
-//         // Здесь вы можете обработать ответ сервера
-//     })
-//     .catch(error => {
-//         console.error('Ошибка при отправке данных:', error);
-//     });
-// }
-
-
-  //  function saveDataScenario(event) {
-//     event.preventDefault(); // Предотвращаем стандартную отправку формы addRelayForm
-//     
-//     // Получаем форму
-//     const form = document.getElementById('formScenario');
-//     
-//     // Выводим все элементы формы
-//     console.log(form.elements);
-//     
-//     // Проверяем, что form существует
-//     if (!(form instanceof HTMLFormElement)) {
-//         console.error('Элемент не является формой!');
-//         return;
-//     }
-//     
-//     // Создаем объект FormData из формы
-//     const formData = new FormData(form);
-//     
-//      // Собираем значения для дней недели
-//     const week = {
-//         monday: document.getElementById('monday').checked,
-//         tuesday: document.getElementById('tuesday').checked,
-//         wednesday: document.getElementById('wednesday').checked,
-//         thursday: document.getElementById('thursday').checked,
-//         friday: document.getElementById('friday').checked,
-//         saturday: document.getElementById('saturday').checked,
-//         sunday: document.getElementById('sunday').checked
-//     };
-// 
-//     // Добавляем объект week в formData
-//     formData.set('week', JSON.stringify(week));
-//     
-//  // Автоматически добавляем значения для чекбоксов, если они не установлены
-//     const checkboxes = form.querySelectorAll('input[type="checkbox"]');
-//     checkboxes.forEach(checkbox => {
-//         // Если чекбокс был выбран, его значение будет 'on', так что мы заменим его на 'true'
-//         if (checkbox.checked) {
-//             formData.set(checkbox.name, 'true');  // Заменяем 'on' на 'true'
-//         } else {
-//             formData.set(checkbox.name, 'false'); // Если не выбран, добавляем 'false'
-//         }
-//     });
-//     
-//     const select = document.getElementById('pinRelays');
-// 	console.log( 'pinRelays' ,select.value);  // Выведет выбранное значение
-// 
-// 	if (select.value) {
-//     formData.append('pinRelays', select.value);  // Используем append вместо set
-// 	}
-//     
-//     
-//     // Пример: выводим данные в консоль
-//     for (const [key, value] of formData.entries()) {
-//         console.log(`${key}: ${value}`);
-//     }
-// 
-//     // Отправляем данные на сервер
-//     fetch('/formScenario', {
-//         method: 'POST',
-//         body: formData,
-//     })
-//     .then(response => response.json())
-//     .then(data => {
-//         console.log('Данные успешно отправлены на сервер:', data);
-//         // Здесь вы можете обработать ответ сервера
-//     })
-//     .catch(error => {
-//         console.error('Ошибка при отправке данных:', error);
-//     });
-// } 
-
-//=============
-    
-//     async function fetchFileList() {
-//             const response = await fetch('/fileList');
-//             const files = await response.json();
-//             const fileListDiv = document.getElementById('fileList');
-// 
-//             files.forEach(file => {
-//                 const link = document.createElement('a');
-//                 link.href = `/downloadFile?filename=${encodeURIComponent(file)}`;
-//                 link.textContent = `Download ${file}`;
-//                 link.style.display = 'block';
-//                 fileListDiv.appendChild(link);
-//             });
-//         }
-// 
-//         window.onload = fetchFileList;
-    
-    //===========
     
     // Функция для показа окна добавления реле
 function showAddRelayForm() {
@@ -1803,46 +1823,69 @@ function sendCommand(relay, action) {
     .catch(error => console.error('Error:', error));
 }
 
-
 // Функция для получения состояния реле и обновления UI
 function updateStates() {
     fetch('/relayStates')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+    
         .then(data => {
             console.log(data);
 
             const container = document.getElementById('relayContainer');
-            container.innerHTML = ''; // Очищаем контейнер перед обновлением
+            if (container) {
+                container.innerHTML = ''; // Очищаем контейнер перед обновлением
 
-            // Генерируем список реле
-            data.relays.forEach(item => {
-                const row = document.createElement('div');
-                row.classList.add('relay-row');
-                row.dataset.relay = item.description;
+                // Генерируем список реле
+                data.relays.forEach(item => {
+                    const row = document.createElement('div');
+                    row.classList.add('relay-row');
+                    row.dataset.relay = item.description;
 
-                row.innerHTML = `
-                    <div class="relay-description">${item.description}</div>
-                    <div class="relay-controls">
-                        <button type="button" onclick="sendCommand('${item.description}', 'on')">On</button>
-                        <button type="button" onclick="sendCommand('${item.description}', 'off')">Off</button>
-                    </div>
-                    <div class="relay-state"> Текущее состояние: <span style="color: ${item.state ? 'green' : 'red'};">${item.state ? 'On' : 'Off'}</span>
-					</div>
-                    <div class="relay-mode">Режим: ${item.mode}</div>
-                `;
+                    row.innerHTML = `
+                        <div class="relay-description">${item.description}</div>
+                        <div class="relay-controls">
+                            <button type="button" class="relay-on">On</button>
+                            <button type="button" class="relay-off">Off</button>
+                        </div>
+                        <div class="relay-state"> Текущее состояние: 
+                            <span style="color: ${item.state ? 'green' : 'red'};">
+                                ${item.state ? 'On' : 'Off'}
+                            </span>
+                        </div>
+                        <div class="relay-mode">Режим: ${item.mode}</div>
+                    `;
 
-                container.appendChild(row);
-            });
+                    // Добавляем обработчики событий для кнопок
+                    row.querySelector('.relay-on').addEventListener('click', () => {
+                        sendCommand(item.description, 'on');
+                    });
+                    row.querySelector('.relay-off').addEventListener('click', () => {
+                        sendCommand(item.description, 'off');
+                    });
+
+                    container.appendChild(row);
+                });
+            }
 
             // Обновление температуры
             const tempElement = document.getElementById('temperature');
             if (tempElement) {
                 tempElement.textContent = `${data.temp}°C`;
             }
-        })
-        .catch(error => console.error('Error:', error));
-}
 
+            // Обновление времени
+            const timeElement = document.getElementById('currentDateTime');
+            if (timeElement) {
+                timeElement.textContent = `${data.currentDateTime}`;
+            }
+        })
+        .catch(error => console.error('Error fetching relay states:', error));
+}
 
 function sendCommand(relay, action) {
     let formData = new FormData();
@@ -2003,6 +2046,8 @@ document.addEventListener('click', function (event) {
   loadPins();
   
   getFormScenario();
+  
+  setCurrentDateForInputDate();
   
  //=============================
 
@@ -2216,7 +2261,7 @@ function deleteNetwork(ssid) {
         if (data.success) {
             console.log('Network deleted successfully');
             // Обновление списка сетей на клиенте
-           // fetchSettings(); // Предполагаем, что у вас есть функция для загрузки настроек с сервера
+          
            deleteNetworkOnClient(ssid);
         } else {
             console.error('Error deleting network:', data.message);
@@ -2847,7 +2892,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setInterval(checkForNetworks, 1000);
 });
-//ver2.3
+//ver2.5
 // получение сертификата openssl s_client -showcerts -connect api.telegram.org:443 </dev/null 2>/dev/null | openssl x509 -outform PEM > api_telegram_org.pem 
     </script>
     
