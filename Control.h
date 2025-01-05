@@ -592,7 +592,7 @@ void mainScenario(void (*callFunc)(String)) {
             }
 
             if (control.scenario.temperatureCheckbox) {
-              if (output > control.scenario.temperature) {
+              if (currentTemp < control.scenario.temperature) { // currentTemp < control.scenario.temperature // output > control.scenario.temperature
 
                 msg[4] = "Текущая температура меньше установленной";
                 if (msg[4] != lastMsg[4]) {
