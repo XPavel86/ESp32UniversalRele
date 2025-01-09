@@ -815,7 +815,9 @@ select {
         <!-- Кнопка для открытия меню настроек с отступом слева -->
         <button onclick="showRelaySettings()" style="margin-left: 10px;">⚙️</button>
         <!-- Кнопка информации с отступом слева -->
-        <button onclick="getStatus()" style="margin-left: 5px;">ℹ️</button> 
+        <button onclick="getStatus()" style="margin-left: 5px;">ℹ️</button>
+         <!-- Кнопка лога -->
+        <button onclick="getHelp('getLogInfo')" style="margin-left: 5px;">Log</button> 
         
        <button onclick="getHelp('helpContentEsp32')" style="margin-left: 5px;">❓</button>
     </div>
@@ -908,6 +910,12 @@ select {
 
 
 
+
+<div id="getLogInfo" style="display: none;">
+    <h3>События</h3>
+
+
+</div>
 
 <script>
     // Функция для отображения модального окна
@@ -1878,14 +1886,25 @@ function sendCommand(relay, action) {
 
 // Функция для получения состояния реле и обновления UI
 function updateStates() {
-    fetch('/relayStates')
+    const block = document.getElementById("getLogInfo");
+
+    // Определяем, нужно ли добавлять параметр getLogInfo
+    const includeLogInfo = block && window.getComputedStyle(block).display !== "none";
+
+    // Формируем URL запроса
+    let url = '/relayStates';
+    if (includeLogInfo) {
+        url += '?getLogInfo=true'; // Добавляем параметр, если блок открыт
+    }
+
+    // Отправляем запрос на сервер
+    fetch(url)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
-    
         .then(data => {
             console.log(data);
 
@@ -1936,9 +1955,15 @@ function updateStates() {
             if (timeElement) {
                 timeElement.textContent = `${data.currentDateTime}`;
             }
+
+            // Обновление событий, если блок открыт
+            if (block && includeLogInfo) {
+                block.textContent = `${data.logInfo}`;
+            }
         })
         .catch(error => console.error('Error fetching relay states:', error));
 }
+
 
 function sendCommand(relay, action) {
     let formData = new FormData();

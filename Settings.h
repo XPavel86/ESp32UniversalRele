@@ -1217,6 +1217,13 @@ void serverProcessingControl() {
 
 
   server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
+
+    String logInfo = "";
+
+    if (request->hasParam("getLogInfo", true) ) {
+      logInfo = getLog();
+          }
+
     String json = "{";
     json += "\"relays\":[";
 
@@ -1236,6 +1243,7 @@ void serverProcessingControl() {
 
     json += "],";
     json += "\"temp\":" + String(currentTemp) + ",";                                    // Корректная запятая
+    json += "\"logInfo\":" + logInfo + ","; 
     json += "\"currentDateTime\":\"" + formatDateTime(getCurrentTimeFromRTC()) + "\"";  // Строка с кавычками
     json += "}";
 

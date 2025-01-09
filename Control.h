@@ -573,6 +573,7 @@ void mainScenario(void (*callFunc)(String)) {
         if (msg[1] != lastMsg[1]) {
           Serial.println(msg[1]);
           lastMsg[1] = msg[1];
+          callFunc(msg[1]);
         }
 
         if (control.scenario.week[shiftWeekDay(currentTime.tm_wday)]) {
@@ -580,6 +581,7 @@ void mainScenario(void (*callFunc)(String)) {
           if (msg[2] != lastMsg[2]) {
             Serial.println(msg[2]);
             lastMsg[2] = msg[2];
+            callFunc(msg[2]);
           }
 
           int currentMinutes = currentTime.tm_hour * 60 + currentTime.tm_min;
@@ -591,6 +593,7 @@ void mainScenario(void (*callFunc)(String)) {
             if (msg[3] != lastMsg[3]) {
               Serial.println(msg[3]);
               lastMsg[3] = msg[3];
+              callFunc(msg[3]);
             }
 
             if (control.scenario.temperatureCheckbox) {
@@ -600,6 +603,7 @@ void mainScenario(void (*callFunc)(String)) {
                 if (msg[4] != lastMsg[4]) {
                   Serial.println(msg[4]);
                   lastMsg[4] = msg[4];
+                  callFunc(msg[4]);
                 }
                 scenarioRele(true);
 
@@ -608,6 +612,7 @@ void mainScenario(void (*callFunc)(String)) {
                 if (msg[4] != lastMsg[4]) {
                   Serial.println(msg[4]);
                   lastMsg[4] = msg[4];
+                  callFunc(msg[4]);
                 }
                 scenarioRele(false);
               }
@@ -616,6 +621,7 @@ void mainScenario(void (*callFunc)(String)) {
               if (msg[8] != lastMsg[8]) {
                 Serial.println(msg[8]);
                 lastMsg[8] = msg[8];
+                callFunc(msg[8]);
               }
               scenarioRele(true);
             }
@@ -624,6 +630,7 @@ void mainScenario(void (*callFunc)(String)) {
             if (msg[3] != lastMsg[3]) {
               Serial.println(msg[3]);
               lastMsg[3] = msg[3];
+              callFunc(msg[3]);
             }
             scenarioRele(false);
           }
@@ -632,6 +639,7 @@ void mainScenario(void (*callFunc)(String)) {
           if (msg[2] != lastMsg[2]) {
             Serial.println(msg[2]);
             lastMsg[2] = msg[2];
+            callFunc(msg[2]);
           }
           scenarioRele(false);
         }
@@ -640,6 +648,7 @@ void mainScenario(void (*callFunc)(String)) {
         if (msg[1] != lastMsg[1]) {
           Serial.println(msg[1]);
           lastMsg[1] = msg[1];
+          callFunc(msg[1]);
         }
         scenarioRele(false);
       }
@@ -648,6 +657,7 @@ void mainScenario(void (*callFunc)(String)) {
       if (msg[0] != lastMsg[0]) {
         Serial.println(msg[0]);
         lastMsg[0] = msg[0];
+        callFunc(msg[0]);
       }
       scenarioRele(false);
     }
