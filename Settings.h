@@ -1216,14 +1216,7 @@ void serverProcessingControl() {
   });
 
 
-  server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
-
-    String logInfo = "";
-
-    if (request->hasParam("getLogInfo", true) ) {
-      logInfo = getLog();
-          }
-
+server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
     String json = "{";
     json += "\"relays\":[";
 
@@ -1243,7 +1236,6 @@ void serverProcessingControl() {
 
     json += "],";
     json += "\"temp\":" + String(currentTemp) + ",";                                    // Корректная запятая
-    json += "\"logInfo\":" + logInfo + ","; 
     json += "\"currentDateTime\":\"" + formatDateTime(getCurrentTimeFromRTC()) + "\"";  // Строка с кавычками
     json += "}";
 
@@ -1252,6 +1244,11 @@ void serverProcessingControl() {
     // Serial.println(json);  // Для диагностики
   });
 
+
+   server.on("/getlogs", HTTP_GET, [](AsyncWebServerRequest* request) {
+    String status = getLog();
+    request->send(200, "text/plain", status);
+  });
 
 
   //========= настройки control

@@ -558,6 +558,7 @@ void mainScenario(void (*callFunc)(String)) {
       if (msg[0] != lastMsg[0]) {
         Serial.println(msg[0]);
         lastMsg[0] = msg[0];
+         callFunc(msg[0]);
       }
 
       time_t startDate = convertToTimeT(control.scenario.startDate);
