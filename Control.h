@@ -1,3 +1,5 @@
+// Сделать массив из сценариев и массив индексов реле
+
 #include <Arduino.h>
 #include <TroykaCurrent.h>
 #include <ESPAsyncWebServer.h>
@@ -69,7 +71,7 @@ struct Relay {
 struct Control {
   std::vector<Relay> relays;
   std::vector<int> pins = { 23, 22, 1, 3, 21, 19, 18, 5, 17, 16, 33, 32 };  // only input - 35, 34, 39, 36
-  Scenario scenario;
+  Scenario scenario; 
 };
 
 Control control;

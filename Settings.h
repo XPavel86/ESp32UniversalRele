@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <UniversalTelegramBot.h>
 #include <SPIFFS.h>
-#include <esp_task_wdt.h>
+//#include <esp_task_wdt.h>
 #include <vector>
 #include <Ticker.h>
 
