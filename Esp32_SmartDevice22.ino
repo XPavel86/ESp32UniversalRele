@@ -63,9 +63,11 @@ void setup() {
 //===================================
 WiFi.persistent(true);
 
-loadControlFromSPIFFS();
+deviceInit();
+
+delay(0);
 setupControl();
-//=====================================
+//===================================
 
   bot = new UniversalTelegramBot("9960429846:AAHsKFC6CDjV_F9pZ7c81Oppdm580CVv5F4", client);
 
@@ -201,10 +203,12 @@ void loop() {
   
  if(!isUpdate) {
     mainScenario(addLog);
+    updatePins();
  }
 
     if (isSaveControl) {
-      saveControlToSPIFFS();
+          writeDevicesToFile(devices, "/device.json");
+          isSaveControl = false;
     }
   //============================================
 //  wifi_mode_t currentWifiMode = WiFi.getMode();

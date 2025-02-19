@@ -4,7 +4,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta charset='UTF-8'>
 
-<style>
+   <style>
+   
+   .switch-container {
+    margin-left: auto; /* Отправляет переключатель вправо */
+}
 
 .modal-footer {
         display: flex;
@@ -349,7 +353,7 @@ select {
     input[type="text"],
     input[type="password"],
     input[type="number"] {
-        width: 250px;
+        width: 70px;
         padding: 10px;
         margin-bottom: 10px;
         border: 1px solid #757575;
@@ -621,16 +625,25 @@ select {
         margin-right: 10px;
     }
 
-    .slider-container {
-        display: flex;
-        align-items: center;
+.slider-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  width: 100%; /* Занимает всю ширину родителя */
+}
 
-    }
+input[type="range"] {
+  width: calc(100% - 100px); /* Учитываем отступы по 50px с каждой стороны */
+  max-width: 100%; /* Ограничиваем максимальную ширину */
+}
 
     .slider-container input[type="range"] {
-        width: 300px;
+       
+          width: 100%;
         display: inline-block;
-        width: 380px;
+       
         height: 30px;
     }
 
@@ -1136,8 +1149,38 @@ select {
 
  </div>
 
+	  <div class="modal-settings">
+     
+
+		<div class="input-group">
+           <h2>Мощность</h2>
+               <div class="switch-container">
+          <label class="switch">
+            <input type="checkbox" class="switchCheckbox" id="outPowerUseSetting" name="OutPower"  onchange="toggleSwitchPowerOut()" checked>
+            <span class="slider round"></span>
+          </label>
+          </div>
+        </div>
+
+    	<div class="slider-container"> 
+   			 <input type="range" id="powerSliderOut" min="0" max="255" step="1" onchange="updatePowerValue()">
+        <input type="number" id="powerValueOut" min="0" max="100" pattern="[0-9]*">
+      
+		</div>
+		 
+	  
+     </div>
+	  
+	  
+	  
+	  <div class="modal-settings">
+      <h2>Таймеры</h2>
+      
+      
+	  </div>
+		 
     <div class="modal-settings">
-      <h2>Настройки устройства</h2>
+      <h2>Сценарий расписания</h2>
       <!-- Вторая форма для настроек -->
       <form id="formScenario">
         
@@ -1236,6 +1279,36 @@ select {
   </button>
       
     </div>
+    
+    	  <div class="modal-settings">
+      <h2>Температура</h2>
+      
+      
+	  </div>
+	
+	  <div class="modal-settings">
+      <h2>График температуры</h2>
+      
+      
+	  </div>
+	  
+	  	  <div class="modal-settings">
+      <h2>График мощности</h2>
+      
+      
+	  </div>
+	  
+	  <div class="modal-settings">
+      <h2>Плавный старт</h2>
+      
+      
+	  </div>
+	  
+	  <div class="modal-settings">
+      <h2>Карта калибровки</h2>
+      
+      
+	  </div>
 
   </div> <!-- Закрытие формы deviceSettingsForm -->
 </div> <!-- Закрытие div Control -->
@@ -1291,6 +1364,39 @@ select {
    let availablePins;
    let ocupationPins = [];
    
+//==========[ МОЩНОСТЬ ]==========
+
+    function toggleSwitchPowerOut() {
+      const slider = document.getElementById('powerSliderOut');
+      const switchCheckbox = document.getElementById('outPowerUseSetting').checked;
+      const number = document.getElementById('powerValueOut');
+      if (switchCheckbox) {
+        slider.disabled = false;
+        number.disabled = false;
+      } else {
+        slider.disabled = true;
+         number.disabled = true;
+      }
+
+    let formData = new FormData();
+    formData.append('isAdjustPower', switchCheckbox.toString());
+    
+  fetch('/toggleSwitchPowerOut', {
+        method: 'POST',
+        body: formData
+    })
+    
+    .then(response => response.json())
+    .then(data => {
+        var statusDiv = document.getElementById("statusControl");
+        statusDiv.innerHTML = data.message;
+    })
+    .catch(error => {
+        console.error("Error:", error);
+    });
+      
+    }
+ 
 // Функция для отображения всплывающего уведомления
 function showBalloon(message) {
     var balloon = document.getElementById("statusBalloon");
@@ -1545,10 +1651,12 @@ function saveDataScenario(event) {
     })
         .then(response => response.json())
         .then(data => {
+         showBalloon("Применение успешно!");
             console.log('Данные успешно отправлены на сервер:', data);
         })
         .catch(error => {
             console.error('Ошибка при отправке данных:', error);
+            showBalloon("Ошибка!");
         });
 }
 
@@ -2177,7 +2285,65 @@ document.addEventListener('click', function (event) {
   
   setCurrentDateForInputDate();
   
- //=============================
+//=========[ МОЩНОСТЬ ]============
+
+ var powerSlider = document.getElementById("powerSliderOut");
+    var powerValue = document.getElementById("powerValueOut");
+
+    // Функция обновления текстового поля при изменении слайдера
+    function updatePowerValue() {
+        var scaledValue = Math.round((powerSlider.value / 255) * 100);
+        powerValue.value = scaledValue; // Устанавливаем значение в поле ввода
+
+        sendPowerValue(powerSlider.value); // Отправляем на сервер
+    }
+
+    // Функция обновления слайдера при изменении значения в текстовом поле
+    function updatePowerSlider() {
+        var inputValue = parseInt(powerValue.value, 10);
+
+        // Ограничиваем ввод только в диапазоне от 0 до 100
+        if (isNaN(inputValue) || inputValue < 0) {
+            powerValue.value = 0;
+            inputValue = 0;
+        } else if (inputValue > 100) {
+            powerValue.value = 100;
+            inputValue = 100;
+        }
+
+        var sliderValue = Math.round((inputValue / 100) * 255);
+        powerSlider.value = sliderValue; // Устанавливаем значение в слайдере
+
+        sendPowerValue(sliderValue); // Отправляем на сервер
+    }
+
+    // Функция отправки данных на сервер
+    function sendPowerValue(value) {
+        let formData = new FormData();
+        formData.append('powerSliderValue', value);
+
+        fetch('/updatePowerValue', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Обработка ответа от сервера, если необходимо
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+
+    // Привязываем события
+    powerSlider.addEventListener("input", updatePowerValue);
+    powerValue.addEventListener("input", updatePowerSlider);
+
+
+//=======[ END МОЩНОСТЬ ]==========
+
+
+//======= ПОЛУЧЕНИЕ НАСТРОЕК====
 
     function fetchSettings() {
         fetch('/getsettings')
@@ -2433,6 +2599,10 @@ function toggleMode() {
  let isScanning = false;
 
  function scanWiFi() {
+ 
+ var status = document.getElementById('status'); 
+ 	 status.textContent = "";
+ 
    fetch('/scan', { method: 'POST' })
         .then(response => {
             if (!response.ok) {
@@ -2444,7 +2614,7 @@ function toggleMode() {
             console.error("Error starting WiFi scan:", error);
         });
 
-    var status = document.getElementById('status'); 
+   
     var tmp_status = status.textContent;
 
     // Начинаем обратный отсчет сразу после отправки запроса
@@ -2489,6 +2659,7 @@ function toggleMode() {
         })
         .catch(error => {
             console.error("Error checking for networks:", error);
+            document.getElementById('status').innerHTML = "<h2>Ошибка поиска сетей. Повторите</h2>";
         });
 	}
     

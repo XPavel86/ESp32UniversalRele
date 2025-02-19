@@ -207,6 +207,7 @@ void sendPendingMessages() {
     }
   }
 }
+
 //=============================
 
 void addTelegramUser(const String& id, bool reading, bool writing) {
@@ -217,10 +218,10 @@ void addTelegramUser(const String& id, bool reading, bool writing) {
 void removeTelegramUser(const String& id) {
   auto& users = settings.telegramSettings.telegramUsers;
   users.erase(std::remove_if(users.begin(), users.end(),
-                             [&id](const TelegramUserID& user) {
-                               return user.id == id;
-                             }),
-              users.end());
+  [&id](const TelegramUserID & user) {
+    return user.id == id;
+  }),
+  users.end());
 }
 
 void addNetwork(const String& ssid, const String& password, bool useStaticIP,
@@ -233,10 +234,10 @@ void addNetwork(const String& ssid, const String& password, bool useStaticIP,
 void removeNetwork(const String& ssid) {
   auto& networks = settings.networkSettings;
   networks.erase(std::remove_if(networks.begin(), networks.end(),
-                                [&ssid](const NetworkSetting& network) {
-                                  return network.ssid == ssid;
-                                }),
-                 networks.end());
+  [&ssid](const NetworkSetting & network) {
+    return network.ssid == ssid;
+  }),
+  networks.end());
 }
 
 //===============================
@@ -999,9 +1000,9 @@ void changeBotId(String newToken) {
 //=================================
 void deleteNetwork(String ssid) {
   auto it = std::find_if(settings.networkSettings.begin(), settings.networkSettings.end(),
-                         [&ssid](const NetworkSetting& network) {
-                           return network.ssid == ssid;
-                         });
+  [&ssid](const NetworkSetting & network) {
+    return network.ssid == ssid;
+  });
 
   if (it != settings.networkSettings.end()) {
     settings.networkSettings.erase(it);
@@ -1024,8 +1025,45 @@ void deleteNetwork(String ssid) {
 
 void serverProcessingControl() {
 
+   //===============Мощьность=================//
+
+server.on("/toggleSwitchPowerOut", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("isAdjustPower", true)) {
+      String isAdjustPower = request->getParam("isAdjustPower", true)->value();
+      devices[currentDeviceIndex].outPower.isUseSetting = (isAdjustPower == "true");
+
+      // Отправляем ответ клиенту
+      String message = "toggleSwitchPowerOut";
+      String jsonResponse = "{\"message\":\"" + message + "\"}";
+      request->send(200, "application/json", jsonResponse);
+    } else {
+      request->send(400, "application/json", "{\"message\":\"Bad Request\"}");
+    }
+  });
+
+  server.on("/updatePowerValue", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("powerSliderValue", true)) {
+
+        String powerSliderValue = request->getParam("powerSliderValue", true)->value();
+
+        if (devices[currentDeviceIndex].outPower.isUseSetting) {
+
+       devices[currentDeviceIndex].outPower.pwmMode = true;
+       devices[currentDeviceIndex].outPower.pwm = powerSliderValue.toInt();
+
+       controlOutputs(devices[currentDeviceIndex].outPower); // копируем данные в основные реле
+        }
+
+        // Отправляем ответ клиенту
+        String jsonResponse = "{\"message\":\"Power slider value updated\"}";
+        request->send(200, "application/json", jsonResponse);
+    } else {
+        request->send(400, "application/json", "{\"message\":\"Bad Request\"}");
+    }
+});
+/*
   // Настроим сервер для обработки GET-запросов
-  server.on("/getFormScenario", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/getFormScenario", HTTP_GET, [](AsyncWebServerRequest * request) {
     // Создание JSON документа
     DynamicJsonDocument doc(2048);
 
@@ -1056,7 +1094,7 @@ void serverProcessingControl() {
     request->send(200, "application/json", response);
   });
 
-  server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/formScenario", HTTP_POST, [](AsyncWebServerRequest * request) {
     printRequestParameters(request);
 
     // Проверка на наличие обязательных параметров
@@ -1141,7 +1179,7 @@ void serverProcessingControl() {
                   control.scenario.pinRelays,
                   control.scenario.pinRelays2,
                   control.scenario.timeInterval  // int
-    );
+                 );
 
     // Добавляем вывод дней недели
     for (int i = 0; i < 7; i++) {
@@ -1157,7 +1195,7 @@ void serverProcessingControl() {
     request->send(200, "application/json", "{\"status\":\"Success\"}");
   });
 
-  server.on("/relay", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/relay", HTTP_POST, [](AsyncWebServerRequest * request) {
     // Проверяем наличие параметров
     if (!request->hasParam("relay", true) || !request->hasParam("action", true)) {
       request->send(400, "text/plain", "Missing parameters");
@@ -1191,7 +1229,7 @@ void serverProcessingControl() {
     }
   });
 
-  server.on("/resetManual", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/resetManual", HTTP_POST, [](AsyncWebServerRequest * request) {
     Serial.println("Resetting all relays to Auto mode");
 
     bool anyRelayUpdated = false;
@@ -1216,7 +1254,7 @@ void serverProcessingControl() {
   });
 
 
-server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest * request) {
     String json = "{";
     json += "\"relays\":[";
 
@@ -1245,144 +1283,132 @@ server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
   });
 
 
-   server.on("/getlogs", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/getlogs", HTTP_GET, [](AsyncWebServerRequest * request) {
     String status = getLog();
     request->send(200, "text/plain", status);
   });
 
-
+ */
   //========= настройки control
-  server.on("/getRelaySettings", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/getRelaySettings", HTTP_GET, [](AsyncWebServerRequest * request) {
     // Создаем список доступных пинов
-    std::vector<int> availablePins = control.pins;
+    std::vector<uint8_t> availablePins = devices[currentDeviceIndex].pins;
 
     // Формируем JSON-ответ
     String response = "{";
     response += "\"relays\":[";
 
     bool firstRelay = true;
-    for (const auto& relay : control.relays) {
-      // Проверяем, что у реле есть описание
-      if (!relay.description.isEmpty()) {
-        if (!firstRelay) {
-          response += ",";  // Добавляем запятую между объектами
-        } else {
-          firstRelay = false;
+    for (const auto& relay : devices[currentDeviceIndex].relays) {
+        if (!relay.description.isEmpty()) {
+            if (!firstRelay) {
+                response += ",";
+            } else {
+                firstRelay = false;
+            }
+
+            response += "{";
+            response += "\"pin\":" + String(relay.pin) + ",";
+            response += "\"modePin\":\"" + relay.modePin + "\",";
+            response += "\"manualMode\":" + String(relay.manualMode ? "true" : "false") + ",";
+            response += "\"statePin\":" + String(relay.statePin ? "true" : "false") + ",";
+            response += "\"description\":\"" + relay.description + "\"";
+            response += "}";
         }
-
-        // Serial.print("load relay.statePin: ");
-        // Serial.println(relay.modePin);  // Логируем значение modePin
-
-        // Формируем объект для текущего реле
-        response += "{";
-        response += "\"pin\":" + String(relay.pin) + ",";
-        response += "\"modePin\":\"" + relay.modePin + "\",";
-        response += "\"manualMode\":" + String(relay.manualMode ? "true" : "false") + ",";
-        response += "\"statePin\":" + String(relay.statePin ? "true" : "false") + ",";
-        response += "\"description\":\"" + relay.description + "\"";
-        response += "}";
-      }
     }
     response += "],";
 
     // Добавляем список доступных пинов
     response += "\"availablePins\":[";
     for (size_t i = 0; i < availablePins.size(); ++i) {
-      response += String(availablePins[i]);
-      if (i < availablePins.size() - 1) {
-        response += ",";
-      }
+        response += String(availablePins[i]);
+        if (i < availablePins.size() - 1) {
+            response += ",";
+        }
     }
     response += "]";
 
     response += "}";
-
-    // Отправляем ответ клиенту
     request->send(200, "application/json", response);
-  });
+});
 
   // Обработчик для сохранения настроек реле
-  server.on("/saveRelaySettings", HTTP_POST, [](AsyncWebServerRequest* request) {
+server.on("/saveRelaySettings", HTTP_POST, [](AsyncWebServerRequest * request) {
     Serial.println("Received POST request to /saveRelaySettings");
 
     printRequestParameters(request);
 
     String requestBody;
     if (request->hasParam("relaySettings", true)) {
-      requestBody = request->getParam("relaySettings", true)->value();
-      Serial.println(requestBody);
+        requestBody = request->getParam("relaySettings", true)->value();
+        Serial.println(requestBody);
     } else {
-      Serial.println(requestBody);
-      request->send(400, "application/json", "{\"error\":\"Missing relaySettings parameter\"}");
-      return;
+        Serial.println(requestBody);
+        request->send(400, "application/json", "{\"error\":\"Missing relaySettings parameter\"}");
+        return;
     }
 
     // Обработка тела запроса
-    DynamicJsonDocument doc(2048);  // Увеличьте размер, если необходимо
+    DynamicJsonDocument doc(2048);
     DeserializationError error = deserializeJson(doc, requestBody);
 
     if (error) {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.f_str());
-      request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-      return;
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.f_str());
+        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+        return;
     }
 
-    // Проверка, является ли JSON массивом
     if (!doc.is<JsonArray>()) {
-      Serial.println(F("Invalid JSON: Expected an array"));
-      request->send(400, "application/json", "{\"error\":\"Expected a JSON array\"}");
-      return;
+        Serial.println(F("Invalid JSON: Expected an array"));
+        request->send(400, "application/json", "{\"error\":\"Expected a JSON array\"}");
+        return;
     }
 
     JsonArray relays = doc.as<JsonArray>();
-    control.relays.clear();  // Очищаем существующий массив реле
+    devices[currentDeviceIndex].relays.clear();
 
     for (JsonVariant v : relays) {
-      if (!v.is<JsonObject>()) {
-        Serial.println(F("Invalid JSON object in array"));
-        request->send(400, "application/json", "{\"error\":\"Invalid JSON structure\"}");
-        return;
-      }
+        if (!v.is<JsonObject>()) {
+            Serial.println(F("Invalid JSON object in array"));
+            request->send(400, "application/json", "{\"error\":\"Invalid JSON structure\"}");
+            return;
+        }
 
-      Relay relay;
-      JsonObject relayObj = v.as<JsonObject>();
+        Relay relay;
+        JsonObject relayObj = v.as<JsonObject>();
 
-      // Заполняем данные реле с проверкой
-      relay.pin = relayObj.containsKey("pin") ? relayObj["pin"].as<int>() : 5;
-      relay.modePin = relayObj.containsKey("modePin") ? relayObj["modePin"].as<String>() : "OUTPUT";
-      relay.manualMode = relayObj.containsKey("manualMode") ? relayObj["manualMode"].as<bool>() : false;
-      relay.statePin = relayObj.containsKey("statePin") ? relayObj["statePin"].as<bool>() : false;
-      relay.description = relayObj.containsKey("description") ? relayObj["description"].as<String>() : "Relay_1";
+        relay.pin = relayObj.containsKey("pin") ? relayObj["pin"].as<int>() : 5;
+        relay.modePin = relayObj.containsKey("modePin") ? relayObj["modePin"].as<String>() : "OUTPUT";
+        relay.manualMode = relayObj.containsKey("manualMode") ? relayObj["manualMode"].as<bool>() : false;
+        relay.statePin = relayObj.containsKey("statePin") ? relayObj["statePin"].as<bool>() : false;
+        relay.description = relayObj.containsKey("description") ? relayObj["description"].as<String>() : "Relay_1";
 
-      control.relays.push_back(relay);
+        devices[currentDeviceIndex].relays.push_back(relay);
 
-      // Вывод информации о реле в консоль
-      Serial.printf("Relay added: Pin=%d, Mode=%s, ManualMode=%d, StatePin=%d, Description=%s\n",
-                    relay.pin, relay.modePin.c_str(), relay.manualMode, relay.statePin, relay.description.c_str());
+        Serial.printf("Relay added: Pin=%d, Mode=%s, ManualMode=%d, StatePin=%d, Description=%s\n",
+                      relay.pin, relay.modePin.c_str(), relay.manualMode, relay.statePin, relay.description.c_str());
     }
 
     request->send(200, "application/json", "{\"status\":\"Success\"}");
-  });
+});
 
-  // Обработчик для добавления нового реле
-  server.on("/addRelay", HTTP_POST, [](AsyncWebServerRequest* request) {
+// Обработчик для добавления нового реле
+server.on("/addRelay", HTTP_POST, [](AsyncWebServerRequest * request) {
     Serial.println("Received POST request to /addRelay");
     printRequestParameters(request);
-    // Проставляем значения по умолчанию
+
     String pin = request->hasParam("pin", true) ? request->getParam("pin", true)->value() : "";
     String modePin = request->hasParam("modePin", true) ? request->getParam("modePin", true)->value() : "OUTPUT";
     String manualMode = request->hasParam("manualMode", true) ? request->getParam("manualMode", true)->value() : "false";
     String statePin = request->hasParam("statePin", true) ? request->getParam("statePin", true)->value() : "false";
     String description = request->hasParam("description", true) ? request->getParam("description", true)->value() : "Relay_1";
 
-    // Проверяем, что все необходимые параметры присутствуют
     if (pin.isEmpty() || modePin.isEmpty()) {
-      request->send(400, "application/json", "{\"error\":\"Missing required fields\"}");
-      return;
+        request->send(400, "application/json", "{\"error\":\"Missing required fields\"}");
+        return;
     }
 
-    // Создаем объект реле
     Relay relay;
     relay.pin = pin.toInt();
     relay.modePin = modePin;
@@ -1390,21 +1416,20 @@ server.on("/relayStates", HTTP_GET, [](AsyncWebServerRequest* request) {
     relay.statePin = (statePin == "true");
     relay.description = description;
 
-    // Добавляем реле в список
-    control.relays.push_back(relay);
+    devices[currentDeviceIndex].relays.push_back(relay);
 
-    // Логируем информацию о добавленном реле
     Serial.printf("New relay added: Pin=%d, Mode=%s, ManualMode=%d, StatePin=%d, Description=%s\n",
-                  relay.pin, relay.modePin, relay.manualMode, relay.statePin, relay.description.c_str());
+                  relay.pin, relay.modePin.c_str(), relay.manualMode, relay.statePin, relay.description.c_str());
 
-    // Отправляем успешный ответ
     request->send(200, "application/json", "{\"status\":\"Success\"}");
-  });
+});
+
 }
 //========================================
 
 
-void serverProcessing() {
+void serverProcessing() { 
+  
   //if (isConnectedWiFi || isStartedAP) {
   Serial.println("serverProcessing");
 
@@ -1415,7 +1440,7 @@ void serverProcessing() {
   //=======================
 
   // Обработчик POST-запроса для утановки даты и времени
-  server.on("/setDateTime", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/setDateTime", HTTP_POST, [](AsyncWebServerRequest * request) {
     printRequestParameters(request);
 
     if (request->hasParam("date", true) && request->hasParam("time", true)) {
@@ -1443,7 +1468,7 @@ void serverProcessing() {
 
 
   // Обработчик для получения списка файлов
-  server.on("/fileList", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/fileList", HTTP_GET, [](AsyncWebServerRequest * request) {
     File root = SPIFFS.open("/");
     if (!root || !root.isDirectory()) {
       request->send(500, "application/json", "{\"error\":\"Failed to access SPIFFS\"}");
@@ -1465,7 +1490,7 @@ void serverProcessing() {
   });
 
   // Обработчик для скачивания конкретного файла
-  server.on("/downloadFile", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/downloadFile", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (!request->hasParam("filename")) {
       request->send(400, "text/plain", "Missing 'filename' parameter");
       return;
@@ -1482,12 +1507,12 @@ void serverProcessing() {
     request->send(response);
   });
   // Обработчик для получения настроек
-  server.on("/getsettings", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/getsettings", HTTP_GET, [](AsyncWebServerRequest * request) {
     String json = getSettingsJson();
     request->send(200, "application/json", json);
   });
 
-  server.on("/scan", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/scan", HTTP_POST, [](AsyncWebServerRequest * request) {
     if (!isScan) {
       isBotToken = false;
       isScan = true;
@@ -1498,7 +1523,7 @@ void serverProcessing() {
     isBotToken = true;
   });
 
-  server.on("/getNetworks", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/getNetworks", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (isScan) {
       request->send(200, "application/json", "[]");
       Serial.println(scannedNetworks);
@@ -1507,7 +1532,7 @@ void serverProcessing() {
     }
   });
 
-  server.on("/applySettings", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/applySettings", HTTP_POST, [](AsyncWebServerRequest * request) {
     String mode = request->getParam("mode", true)->value();
     bool isAP = request->hasParam("is_ap", true);  // Проверка наличия параметра is_ap
 
@@ -1601,8 +1626,9 @@ void serverProcessing() {
         for (JsonObject userObj : usersArray) {
           if (userIndex < settings.telegramSettings.telegramUsers.capacity()) {
             settings.telegramSettings.telegramUsers.push_back({ userObj["id"].as<String>(),
-                                                                userObj["reading"].as<bool>(),
-                                                                userObj["writing"].as<bool>() });
+                userObj["reading"].as<bool>(),
+                userObj["writing"].as<bool>()
+                                                              });
             userIndex++;
           }
         }
@@ -1621,7 +1647,7 @@ void serverProcessing() {
     }
   });
 
-  server.on("/deleteNetwork", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/deleteNetwork", HTTP_POST, [](AsyncWebServerRequest * request) {
     printRequestParameters(request);
     if (request->hasParam("ssid", true)) {
       String ssid = request->getParam("ssid", true)->value();
@@ -1638,24 +1664,24 @@ void serverProcessing() {
 
   //========== Загрузка файла =========
   server.on(
-    "/uploadFile", HTTP_POST, [](AsyncWebServerRequest* request) {
-      // Обработчик для отправки ответа после загрузки
-      request->send(200, "text/plain", "File Uploaded Successfully");
-    },
-    [](AsyncWebServerRequest* request, String filename, size_t index, uint8_t* fileData, size_t len, bool final) {
-      handleFileUpload(request, filename, index, fileData, len, final);
-    });
+  "/uploadFile", HTTP_POST, [](AsyncWebServerRequest * request) {
+    // Обработчик для отправки ответа после загрузки
+    request->send(200, "text/plain", "File Uploaded Successfully");
+  },
+  [](AsyncWebServerRequest * request, String filename, size_t index, uint8_t* fileData, size_t len, bool final) {
+    handleFileUpload(request, filename, index, fileData, len, final);
+  });
 
   //=============Рестарт===============
   // Обработчик для перезагрузки устройства
-  server.on("/restart", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/restart", HTTP_POST, [](AsyncWebServerRequest * request) {
     request->send(200, "application/json", "{\"message\":\"Устройство перезагружается...\"}");
     // Задержка перед перезагрузкой, чтобы клиент получил ответ
     delay(500);
     ESP.restart();
   });
 
-  server.on("/format", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/format", HTTP_POST, [](AsyncWebServerRequest * request) {
     request->send(200, "application/json", "{\"message\":\"Устройство форматируется...\"}");
     // Задержка перед перезагрузкой, чтобы клиент получил ответ
     delay(500);
@@ -1666,7 +1692,7 @@ void serverProcessing() {
   });
 
   // Настройка сервера для изменения botId
-  server.on("/set_bot_id", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/set_bot_id", HTTP_POST, [](AsyncWebServerRequest * request) {
     if (request->hasParam("botId", true)) {
       String newBotId = request->getParam("botId", true)->value();
       settings.telegramSettings.botId = newBotId;
@@ -1689,7 +1715,7 @@ void serverProcessing() {
   });
 
   // Обработчик для добавления пользователя
-  server.on("/add_user", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/add_user", HTTP_POST, [](AsyncWebServerRequest * request) {
     if (request->hasParam("user_id", true) && request->hasParam("reading", true) && request->hasParam("writing", true)) {
       String userId = request->getParam("user_id", true)->value();
       bool reading = request->getParam("reading", true)->value() == "true";
@@ -1705,19 +1731,19 @@ void serverProcessing() {
   });
 
 
-  server.on("/sysStatus", HTTP_GET, [](AsyncWebServerRequest* request) {
+  server.on("/sysStatus", HTTP_GET, [](AsyncWebServerRequest * request) {
     String status = getSystemStatus();
     request->send(200, "text/plain", status);
   });
 
   // Обработчик для удаления пользователя
-  server.on("/delete_user", HTTP_POST, [](AsyncWebServerRequest* request) {
+  server.on("/delete_user", HTTP_POST, [](AsyncWebServerRequest * request) {
     if (request->hasParam("user_id", true)) {
       String userId = request->getParam("user_id", true)->value();
       auto& users = settings.telegramSettings.telegramUsers;
 
       // Ищем пользователя по userId
-      auto it = std::find_if(users.begin(), users.end(), [&](const auto& user) {
+      auto it = std::find_if(users.begin(), users.end(), [&](const auto & user) {
         return user.id == userId;
       });
 
@@ -1817,6 +1843,26 @@ bool isValidTokenFormat(const String& token) {
 
 //==================================
 
+bool isValidIdFormat(const String& id) {
+  if (id.isEmpty()) {
+    return false;
+  }
+
+  for (int i = 0; i < id.length(); i++) {
+    if (!isDigit(id[i])) {
+      return false;
+    }
+  }
+
+//  if (id.length() < 8) {
+//    return false;
+//  }
+
+  return true;
+}
+
+//==================================
+
 File sendFileToTg;
 
 bool isMoreDataAvailable() {
@@ -1829,7 +1875,10 @@ byte getNextByte() {
 
 
 //================================
+// Пользовательские команды для управления настройками устройства
+
 bool handleTelegramCommand(String chat_id, String command) {
+  /*
   command.trim();  // Удалить лишние пробелы в начале и конце строки
 
   // Проверка и обработка команды "/on" и "/off"
@@ -1902,6 +1951,10 @@ bool handleTelegramCommand(String chat_id, String command) {
   }  //====================================================
   // Проверка и обработка команды "/"
   else if (command.startsWith("/setTimeInterval")) {
+    if (command.substring(17).isEmpty()) {
+       bot->sendMessage(chat_id, "Ошибка! Повторите ввод.", "");
+        return false;
+      }
     int value = command.substring(17).toInt();  // Извлечь значение
     control.scenario.timeInterval = value;
     Serial.printf("setTimeInterval set to %d\n", value);
@@ -1909,7 +1962,15 @@ bool handleTelegramCommand(String chat_id, String command) {
     return true;
   } else if (command.startsWith("/startTime")) {
     control.scenario.useSetting = true;
-    isSaveControl = true;
+
+    if (control.scenario.useSetting) {
+      bot->sendMessage(chat_id, "Включено", "");
+      isSaveControl = true;
+    } else {
+      bot->sendMessage(chat_id, "Ошибка! Повторите ввод.", "");
+      return false;
+    }
+
     return true;
   }
   // Проверка и обработка команды "/setTime"
@@ -1966,6 +2027,8 @@ bool handleTelegramCommand(String chat_id, String command) {
     return true;
 
   } else if (command.startsWith("/stopTime")) {
+    isSetTimeEnd = isSetTimeStart = false;
+    
     control.scenario.useSetting = false;
 
     if (!control.scenario.useSetting) {
@@ -2006,10 +2069,11 @@ bool handleTelegramCommand(String chat_id, String command) {
   else {
     Serial.println("Unknown command. Please use /help for help.");
     return false;
-  }
+  } */
 }
 
 //=================================
+// команды для системных настроек
 
 void handleNewMessages(int numNewMessages) {
   delay(10);
@@ -2054,141 +2118,195 @@ void handleNewMessages(int numNewMessages) {
     } else
 
       if (text == "/statusSystem") {
-      bot->sendMessage(chat_id, getSystemStatus(), "");
-    } else
-
-      if (text == "/start") {
-      bot->sendMessage(chat_id, "Hello", "");
-    } else
-
-      if (text == "/reset") {
-      bot->sendMessage(chat_id, "Перезагрузка", "");
-      delay(1000);
-      res = true;
-      delay(500);
-    } else
-
-      if (text == "/update") {
-      isUpdate = true;
-
-      String message = "Выберете файл прошивки .bin, контента .html или настроек .json📎. [Скачать прошивку](https://cloud.mail.ru/public/KtJ5/WgxbfXTrP)";
-      sendMessageWithMarkdown(chat_id, message);
-
-    } else if (isUpdate) {
-
-      size_t file_size = bot->messages[i].file_size;
-      String file_path = bot->messages[i].file_path;
-      String file_name = bot->messages[i].file_name;
-
-      size_t totalBytes = SPIFFS.totalBytes();
-      size_t usedBytes = SPIFFS.usedBytes();
-      size_t freeBytes = totalBytes - usedBytes;
-
-      //      Serial.println(file_path);
-      //      Serial.println(file_name);
-      //      Serial.println(file_size);
-
-      String extension = file_name.substring(file_name.lastIndexOf('.') + 1);
-
-      bool sizeOk = freeBytes > file_size || extension == "bin";
-      if (!sizeOk) {
-        bot->sendMessage(chat_id, "Превышен размер файла. Свободно: " + String(freeBytes / 1024) + " KB. Размер файла: " + String(file_size / 1024) + " KB.", "");
-      }
-
-      if (sizeOk && file_size > 0 && file_path.length() > 10) {
-
-        bot->sendMessage(chat_id, "Файл принят: " + file_name, "");
-
-        if (extension == "bin") {
-          file_name = "firmware.bin";  // Переименовываем файл так как длинные имена и с подчеркиванием все ломают
-        }
-
-        TaskParameters* params = new TaskParameters;
-        params->filePath = file_path;  // Передаем путь к файлу
-        params->fileName = file_name;  // Передаем имя файла
-
-        delay(200);
-
-        BaseType_t resultOta = xTaskCreate(
-          otaUpdateTask,  // Функция задачи
-          "OTA Update",   // Имя задачи
-          8192,           // Размер стека
-          params,         // Параметры задачи
-          1,              // Приоритет
-          NULL            // Дескриптор задачи
-        );
-
-        if (resultOta != pdPASS) {
-          Serial.println("Failed to create OTA update task.");
-          isUpdate = false;
-          bot->sendMessage(chat_id, "Повторите попытку", "");
-        }
-
-        return;
-      }
-      //isUpdate = false;  // Сброс флага обновления перенесен в otaUpdateTask
-
-    } else
-
-      if (text == "/newtoken") {
-      isNewToken = true;
-      bot->sendMessage(chat_id, "Отправьте новый токен бота. Для создания бота: @BotFather", "");
-
-    } else
-
-      // не работает пока
-      if (text.startsWith("/sendfile ")) {
-        String fileNameSend = text.substring(10);
-        String filePath = "/" + fileNameSend;
-
-        sendFileToTg = SPIFFS.open(filePath, FILE_READ);
-        if (!sendFileToTg) {
-          Serial.println("Не удалось открыть файл для чтения");
-          return;
-        }
-
-        String response = bot->sendMultipartFormDataToTelegram("sendDocument", "document", sendFileToTg.name(), "txt", chat_id, sendFileToTg.size(), isMoreDataAvailable, getNextByte, nullptr, nullptr);
-
-        Serial.println("Ответ сервера: " + response);
-        sendFileToTg.close();
-
-      }
-
-      else if (isNewToken) {
-        text.trim();
-        String botName = checkNewToken(text);
-        bool isCheck = (botName != "") && isValidTokenFormat(text);
-
-        if (isCheck) {
-          String outStr = "Новый токен успешно применен, перейдите в новый телеграм бот: " + String("@") + botName;
-          bot->sendMessage(chat_id, outStr, "");
-
-          bot->updateToken(text);
-          settings.telegramSettings.botId = text;
-
-          saveSettings();
-
-        } else {
-          bot->sendMessage(chat_id, "Введеный токен не корректный или бот не существует", "");
-        }
-
-        isNewToken = false;
+        bot->sendMessage(chat_id, getSystemStatus(), "");
       } else
 
-        if (text == "/format") {
-        bot->sendMessage(chat_id, "Форматирование файловой системы", "");
-        SPIFFS.format();
-      } else
+        if (text == "/start") {
+          bot->sendMessage(chat_id, "Hello", "");
+        } else
 
-        if (text == "/list") {
-        String listF = "Список файлов:\n";
-        listF += listFiles();
+          if (text == "/reset") {
+            bot->sendMessage(chat_id, "Перезагрузка", "");
+            delay(1000);
+            res = true;
+            delay(500);
+          } else
 
-        bot->sendMessage(chat_id, listF, "");
-      } else if (text == "/networks") {
-        String result = parseNetworkSettings(settings);
-        bot->sendMessage(chat_id, result, "");
-      }
+            if (text == "/update") {
+              isUpdate = true;
+
+              String message = "Выберете файл прошивки .bin, контента .html или настроек .json📎. [Скачать прошивку](https://cloud.mail.ru/public/KtJ5/WgxbfXTrP)";
+              sendMessageWithMarkdown(chat_id, message);
+
+            } else if (isUpdate) {
+
+              size_t file_size = bot->messages[i].file_size;
+              String file_path = bot->messages[i].file_path;
+              String file_name = bot->messages[i].file_name;
+
+              size_t totalBytes = SPIFFS.totalBytes();
+              size_t usedBytes = SPIFFS.usedBytes();
+              size_t freeBytes = totalBytes - usedBytes;
+
+              //      Serial.println(file_path);
+              //      Serial.println(file_name);
+              //      Serial.println(file_size);
+
+              String extension = file_name.substring(file_name.lastIndexOf('.') + 1);
+
+              bool sizeOk = freeBytes > file_size || extension == "bin";
+              if (!sizeOk) {
+                bot->sendMessage(chat_id, "Превышен размер файла. Свободно: " + String(freeBytes / 1024) + " KB. Размер файла: " + String(file_size / 1024) + " KB.", "");
+              }
+
+              if (sizeOk && file_size > 0 && file_path.length() > 10) {
+
+                bot->sendMessage(chat_id, "Файл принят: " + file_name, "");
+
+                if (extension == "bin") {
+                  file_name = "firmware.bin";  // Переименовываем файл так как длинные имена и с подчеркиванием все ломают
+                }
+
+                TaskParameters* params = new TaskParameters;
+                params->filePath = file_path;  // Передаем путь к файлу
+                params->fileName = file_name;  // Передаем имя файла
+
+                delay(200);
+
+                BaseType_t resultOta = xTaskCreate(
+                                         otaUpdateTask,  // Функция задачи
+                                         "OTA Update",   // Имя задачи
+                                         8192,           // Размер стека
+                                         params,         // Параметры задачи
+                                         1,              // Приоритет
+                                         NULL            // Дескриптор задачи
+                                       );
+
+                if (resultOta != pdPASS) {
+                  Serial.println("Failed to create OTA update task.");
+                  isUpdate = false;
+                  bot->sendMessage(chat_id, "Повторите попытку", "");
+                }
+
+                return;
+              }
+              //isUpdate = false;  // Сброс флага обновления перенесен в otaUpdateTask
+
+            } else
+
+              if (text == "/newtoken") {
+                isNewToken = true;
+                bot->sendMessage(chat_id, "Отправьте новый токен бота. Для создания бота: @BotFather", "");
+              }
+              
+              else if (text.startsWith("/newUser")) {
+  String value = text.substring(8);  // Извлечь значение
+  value.trim();
+  if (isValidIdFormat(value)) {
+    // Добавляем нового пользователя в вектор
+    settings.telegramSettings.telegramUsers.push_back({ value, true, true });
+
+    Serial.printf("New user %s\n", value);
+    isSaveControl = true;
+
+    String str = "Новый id пользователя установлен: " + value;
+    addLog(str);
+    bot->sendMessage(chat_id, "Новый id пользователя установлен.", "");
+  } else {
+    String str = "Не корректный id пользователя: " + value ;
+    addLog(str);
+    bot->sendMessage(chat_id, str, "");
+  }
+  return;
+} else if (text.startsWith("/delUser")) {
+  String value = text.substring(8);  // Извлечь значение
+  value.trim();
+  if (isValidIdFormat(value)) {
+    auto& users = settings.telegramSettings.telegramUsers;
+
+    // Ищем пользователя по userId
+    auto it = std::find_if(users.begin(), users.end(), [&](const auto & user) {
+      return user.id == value;
+    });
+
+    if (it != users.end()) {
+      // Удаляем пользователя из вектора
+      users.erase(it);
+
+      String str = "Пользователь удален: " + value;
+      addLog(str);
+      bot->sendMessage(chat_id, str, "");
+
+      Serial.printf("Del user %s\n", value);
+      isSaveControl = true;
+    } else {
+      String str = "Пользователь с данным id не найден: " + value;
+      addLog(str);
+      bot->sendMessage(chat_id, str, "");
+    }
+
+  } else {
+     String str = "Не корректный id пользователя: " + value ;
+    addLog(str);
+    bot->sendMessage(chat_id, str, "");
+  }
+  return;
+}
+                  // не работает пока
+                 else if (text.startsWith("/sendfile ")) {
+                    String fileNameSend = text.substring(10);
+                    String filePath = "/" + fileNameSend;
+
+                    sendFileToTg = SPIFFS.open(filePath, FILE_READ);
+                    if (!sendFileToTg) {
+                      Serial.println("Не удалось открыть файл для чтения");
+                      return;
+                    }
+
+                    String response = bot->sendMultipartFormDataToTelegram("sendDocument", "document", sendFileToTg.name(), "txt", chat_id, sendFileToTg.size(), isMoreDataAvailable, getNextByte, nullptr, nullptr);
+
+                    Serial.println("Ответ сервера: " + response);
+                    sendFileToTg.close();
+
+                  }
+
+                  else if (isNewToken) {
+                    text.trim();
+                    String botName = checkNewToken(text);
+                    bool isCheck = (botName != "") && isValidTokenFormat(text);
+
+                    if (isCheck) {
+                      String outStr = "Новый токен успешно применен, перейдите в новый телеграм бот: " + String("@") + botName;
+                      bot->sendMessage(chat_id, outStr, "");
+
+                      bot->updateToken(text);
+                      settings.telegramSettings.botId = text;
+
+                      saveSettings();
+
+                    } else {
+                      bot->sendMessage(chat_id, "Введеный токен не корректный или бот не существует", "");
+                    }
+
+                    isNewToken = false;
+                  } else
+
+                    if (text == "/format") {
+                      bot->sendMessage(chat_id, "Форматирование файловой системы", "");
+                      SPIFFS.format();
+                    } else
+
+                      if (text == "/list") {
+                        String listF = "Список файлов:\n";
+                        listF += listFiles();
+
+                        bot->sendMessage(chat_id, listF, "");
+                      } else if (text == "/networks") {
+                        String result = parseNetworkSettings(settings);
+                        bot->sendMessage(chat_id, result, "");
+                      } else {
+                        bot->sendMessage(chat_id, "Не корректная команда", "");
+                      }
 
     //=== END КНОПКИ =====//
     //return;
